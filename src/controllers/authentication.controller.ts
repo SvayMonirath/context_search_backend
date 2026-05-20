@@ -1,7 +1,7 @@
 import express from "express";
 import z from "zod";
 
-import { Register_Request } from "../dtos/authentication.request.js";
+import { Login_Request, Register_Request } from "../dtos/authentication.request.js";
 import { AuthenticationService } from "../services/authentication.service.js";
 
 export class AuthenticationController {
@@ -12,21 +12,60 @@ export class AuthenticationController {
   register = async (req: express.Request, res: express.Response) => {
     try {
       const userData: z.infer<typeof Register_Request> = Register_Request.parse(req.body);
-      const result = await this.authentication_service.register(userData);
+      await this.authentication_service.register(userData);
 
       res.status(201).json({
         status: "success",
         message: "User registered successfully",
-        data: result
       });
 
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid request data", errors: error});
-      } else {
-        res.status(500).json({ message: "Error registering user", error: error });
-      }
+      res.status(400).json({
+        status: "error",
+        message: error instanceof Error ? error.message : "An error occurred during registration",
+      });
     }
   }
 
+  login = async (req: express.Request, res: express.Response) => {
+    try {
+      const userData: z.infer<typeof Login_Request> = Login_Request.parse(req.body);
+      const { user, access_token } = await this.authentication_service.login(userData);
+
+      res.cookie("access_token", access_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: Number(process.env.ACCESS_TOKEN_COOKIE_EXPIRES_IN || "3600000")
+      });
+
+      res.status(200).json({
+        status: "success",
+        message: "User logged in successfully",
+        data: {
+          access_token: access_token,
+        }
+      });
+
+
+    } catch (error) {
+      res.status(400).json({
+        status: "error",
+        message: error instanceof Error ? error.message : "An error occurred during login",
+      });
+    }
+  }
+
+  logout = async (req: express.Request, res: express.Response) => {
+    res.clearCookie("access_token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "User logged out successfully",
+    });
+  }
 }
