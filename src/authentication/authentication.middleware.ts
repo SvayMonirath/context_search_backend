@@ -5,6 +5,14 @@ import jwt from "jsonwebtoken";
 export const verify_access_token = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   try {
     const token = req.cookies.access_token;
+
+    if(!token) {
+      return res.status(401).json({
+        status: "error",
+        message: "Unauthorized",
+      });
+    }
+
     const decoded = jwt.verify(token, process.env.JWT_ACCESS_TOKEN_SECRET_KEY);
     req.user = decoded;
     next();
