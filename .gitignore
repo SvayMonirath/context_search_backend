@@ -1,3 +1,72 @@
+### Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+
+### pnpm
+.pnpm-store/
+
+### TypeScript / Build
+dist/
+build/
+lib/
+out/
+*.tsbuildinfo
+
+### Frameworks / Tools
+.next/
+out/
+.vite/
+.parcel-cache/
+
+### Caches
+.cache/
+.turbo/
+
+### Coverage
+coverage/
+.nyc_output/
+
+### Logs
+logs
+*.log
+
+### Environment
+.env
+.env.*.local
+.env.local
+
+### OS
+.DS_Store
+Thumbs.db
+
+### IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+### Docker
+docker-compose.override.yml
+
+### Databases
+*.sqlite
+*.db
+
+### Misc
+*.pem
+*.key
+*.crt
+.vagrant/
+*.tmp
+*.temp
+
+### Node REPL history
+.node_repl_history
 .env
 /src/generated/prisma/*
 node_modules/

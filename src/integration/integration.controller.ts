@@ -2,7 +2,7 @@ import z from "zod";
 import express from "express";
 
 import IntegrationService from "./integration.service.js";
-import type { Store_Integration_Request } from "../integration.request.js";
+import type { Store_Integration_Request } from "./integration.request.js";
 
 class IntegrationController {
   constructor(private integrationService: IntegrationService) {
@@ -11,7 +11,7 @@ class IntegrationController {
 
   google_connect = async (req: express.Request, res: express.Response) => {
     try {
-      const profile_id = req.params.profile_id;
+      const profile_id: any = req.params.profile_id;
       const url = this.integrationService.connect_google(profile_id);
 
       return res.status(200).json({
@@ -21,13 +21,13 @@ class IntegrationController {
           url,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({
         status: "error",
         message: error.message,
       });
     }
-  }
+  };
 
   google_callback = async (req: express.Request, res: express.Response) => {
     try {
@@ -41,7 +41,7 @@ class IntegrationController {
         type: "GMAIL",
         accessToken: token.access_token,
         refreshToken: token.refresh_token,
-      }
+      };
 
       await this.integrationService.store_integration_data(integration_data);
 
@@ -53,14 +53,13 @@ class IntegrationController {
           ProfileID: profile_id,
         },
       });
-
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({
         status: "error",
         message: error.message,
       });
     }
-  }
+  };
 }
 
 export default IntegrationController;
