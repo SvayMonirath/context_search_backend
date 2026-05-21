@@ -2,6 +2,7 @@ import z from "zod";
 import express from "express";
 
 import IntegrationService from "./integration.service.js";
+import type { Store_Integration_Request } from "../integration.request.js";
 
 class IntegrationController {
   constructor(private integrationService: IntegrationService) {
@@ -35,15 +36,21 @@ class IntegrationController {
 
       const token = await this.integrationService.handle_google_callback(code);
 
-      console.log("Received token:", token);
-      console.log("Profile ID:", profile_id)
+      const integration_data: z.infer<typeof Store_Integration_Request> = {
+        profileID: profile_id,
+        type: "GMAIL",
+        accessToken: token.access_token,
+        refreshToken: token.refresh_token,
+      }
+
+      await this.integrationService.store_integration_data(integration_data);
 
       return res.status(200).json({
         status: "success",
         message: "Google account connected successfully",
         data: {
           token,
-          profile_id,
+          ProfileID: profile_id,
         },
       });
 

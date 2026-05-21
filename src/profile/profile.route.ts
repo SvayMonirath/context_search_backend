@@ -7,6 +7,7 @@ import ProfileRepository from "./profile.repository.js";
 import IntegrationController from "../integration/integration.controller.js";
 import IntegrationService from "../integration/integration.service.js";
 import GoogleOAuthService from "../integration/google-oauth.service.js";
+import IntegrationRepository from "../integration/integration.repository.js";
 
 const router: express.Router = express.Router();
 
@@ -17,7 +18,8 @@ const profileService = new ProfileService(profileRepository);
 const profileController = new ProfileController(profileService);
 
 const googleAuthService = new GoogleOAuthService();
-const integrationService = new IntegrationService(googleAuthService);
+const integrationRepository = new IntegrationRepository();
+const integrationService = new IntegrationService(googleAuthService, integrationRepository);
 const integrationController = new IntegrationController(integrationService);
 
 router.post("/", profileController.create_profile);
