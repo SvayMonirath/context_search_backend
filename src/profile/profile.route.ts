@@ -4,6 +4,9 @@ import { verify_access_token } from "../authentication/authentication.middleware
 import ProfileController from "./profile.controller.js";
 import ProfileService from "./profile.service.js";
 import ProfileRepository from "./profile.repository.js";
+import IntegrationController from "../integration/integration.controller.js";
+import IntegrationService from "../integration/integration.service.js";
+import GoogleOAuthService from "../integration/google-oauth.service.js";
 
 const router: express.Router = express.Router();
 
@@ -13,6 +16,11 @@ const profileRepository = new ProfileRepository();
 const profileService = new ProfileService(profileRepository);
 const profileController = new ProfileController(profileService);
 
+const googleAuthService = new GoogleOAuthService();
+const integrationService = new IntegrationService(googleAuthService);
+const integrationController = new IntegrationController(integrationService);
+
 router.post("/", profileController.create_profile);
+router.post("/:profile_id/integration/google/connect", integrationController.google_connect);
 
 export { router };
