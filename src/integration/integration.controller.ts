@@ -2,7 +2,7 @@ import z from "zod";
 import express from "express";
 
 import IntegrationService from "./integration.service.js";
-import type { Store_Integration_Request } from "./integration.request.js";
+import { Get_Gmail_Integration_Request, type Store_Integration_Request } from "./integration.request.js";
 
 class IntegrationController {
   constructor(private integrationService: IntegrationService) {
@@ -51,6 +51,93 @@ class IntegrationController {
         data: {
           token,
           ProfileID: profile_id,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        status: "error",
+        message: error.message,
+      });
+    }
+  };
+
+  get_gmail_integration = async (req: express.Request, res: express.Response) => {
+    try {
+      const profile_id: any  = req.params.profile_id;
+      const integration = await this.integrationService.get_gmail_integration(profile_id);
+
+      if(profile_id !== integration?.profileID){
+        return res.status(404).json({
+          status: "error",
+          message: "Gmail integration not found for the specified profile",
+        });
+      }
+
+      return res.status(200).json({
+        status: "success",
+        message: "Gmail integration data retrieved successfully",
+        data: {
+          integration,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        status: "error",
+        message: error.message,
+      });
+    }
+  }
+
+  refresh_google_token = async(req: express.Request, res: express.Response) => {
+    try {
+      const profile_id: any  = req.params.profile_id;
+      const integration = await this.integrationService.get_gmail_integration(profile_id);
+
+      if (!integration) {
+        return res.status(404).json({
+          status: "error",
+          message: "Gmail integration not found for the specified profile",
+        });
+      }
+
+      // does this return a new refresh token or access token or both? usually only access token is refreshed, refresh token remains the same
+      const refreshed_tokens = await this.integrationService.refresh_google_token(integration.refreshToken);
+
+      // Update the stored tokens in the database
+      const updated_integration_data: z.infer<typeof Store_Integration_Request> = {
+        profileID: profile_id,
+        type: "GMAIL",
+        accessToken: refreshed_tokens.access_token,
+        refreshToken: integration.refreshToken, // Refresh token usually remains the same
+      };
+
+      await this.integrationService.update_integration_token(profile_id, updated_integration_data);
+
+      return res.status(200).json({
+        status: "success",
+        message: "Google access token refreshed successfully",
+        data: {
+          accessToken: refreshed_tokens.access_token,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        status: "error",
+        message: error.message,
+      });
+    }
+  }
+
+  create_gmail_client = async (req: express.Request, res: express.Response) => {
+    try {
+      const integration_data: z.infer<typeof Get_Gmail_Integration_Request> = Get_Gmail_Integration_Request.parse(req.body);
+      const gmail_client = await this.integrationService.create_gmail_client(integration_data);
+
+      return res.status(200).json({
+        status: "success",
+        message: "Gmail client created successfully",
+        data: {
+          gmail_client,
         },
       });
     } catch (error: any) {
