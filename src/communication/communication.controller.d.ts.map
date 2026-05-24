@@ -1,1 +1,0 @@
-{"version":3,"file":"communication.controller.d.ts","sourceRoot":"","sources":["communication.controller.ts"],"names":[],"mappings":"AAAA,OAAO,OAAO,MAAM,SAAS,CAAC;AAE9B,OAAO,oBAAoB,MAAM,4BAA4B,CAAC;AAE9D,cAAM,uBAAuB;IACf,OAAO,CAAC,oBAAoB;gBAApB,oBAAoB,EAAE,oBAAoB;IAI9D,UAAU,GAAU,KAAK,OAAO,CAAC,OAAO,EAAE,KAAK,OAAO,CAAC,QAAQ,yDA4B7D;CACH;AAED,eAAe,uBAAuB,CAAC"}
