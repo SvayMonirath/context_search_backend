@@ -19,6 +19,35 @@ class IntegrationRepository {
       throw new Error("Failed to store integration data");
     }
   };
+
+  get_gmail_integration = async (profile_id: string ) => {
+    return await prisma.integration.findFirst({
+      where: {
+        profileID: profile_id,
+        type: "GMAIL",
+      }
+    })
+  }
+
+  update_integration_token = async (
+    profile_id: string,
+    data: Partial<z.infer<typeof Store_Integration_Request>>,
+  ) => {
+    try {
+      return await prisma.integration.updateMany({
+        where: {
+          profileID: profile_id,
+          type: "GMAIL",
+        },
+        data: {
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+        }
+      });
+    } catch (error) {
+      throw new Error("Failed to update integration data");
+    }
+  };
 }
 
 export default IntegrationRepository;
