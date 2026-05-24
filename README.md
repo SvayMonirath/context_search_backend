@@ -7,17 +7,6 @@ This backend powers the context search app. It handles:
 - Google Gmail connection
 - fetching emails for a selected profile
 
-The README below is written as a setup guide for a teammate who is running the app from scratch.
-
-## What your teammate needs first
-
-Before running anything, make sure these are installed:
-
-- Node.js 20+ or a compatible version
-- `pnpm`
-- PostgreSQL with `pgvector` or Docker Desktop to run it in a container
-- A Google Cloud project with OAuth credentials
-
 ## 1. Clone the project
 
 ```bash
