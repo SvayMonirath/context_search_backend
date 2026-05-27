@@ -21,6 +21,7 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "googleapis": "^172.0.0",
+    "html-to-text": "^10.0.0",
     "jsonwebtoken": "^9.0.3",
     "prisma": "^7.8.0",
     "tsx": "^4.21.0",

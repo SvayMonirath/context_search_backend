@@ -1,19 +1,36 @@
 import GoogleOAuthService from "../integration/google-oauth.service.js";
 import IntegrationService from "../integration/integration.service.js";
+import { buildSanitizedEmail } from "./communication-email-sanitizer.js";
+import type CommunicationRepository from "./communication.repository.js";
 
 type GmailIntegration = {
+  id: string;
   profileID: string;
   accessToken: string | null;
   refreshToken: string | null;
+};
+
+type SanitizedEmail = {
+  id: string | null | undefined;
+  threadId: string | null | undefined;
+  snippet: string | null;
+  body: string | null;
+  labelIds: string[];
+  internalDate: string | null | undefined;
+  from: string | null;
+  subject: string | null;
+  date: string | null;
 };
 
 class CommunicationService {
   constructor(
     private integrationService: IntegrationService,
     private googleOAuthService: GoogleOAuthService,
+    private communicationRepository: CommunicationRepository,
   ) {
     this.integrationService = integrationService;
     this.googleOAuthService = googleOAuthService;
+    this.communicationRepository = communicationRepository;
   }
 
   fetch_emails = async (profile_id: string, maxResults = 10) => {
@@ -59,22 +76,22 @@ class CommunicationService {
           format: "full",
         });
 
-        const headers = detailResponse.data.payload?.headers ?? [];
-        const getHeader = (name: string) =>
-          headers.find(
-            (header) => header.name?.toLowerCase() === name.toLowerCase(),
-          )?.value ?? null;
+        const sanitizedEmail = buildSanitizedEmail({
+          id: detailResponse.data.id ?? undefined,
+          threadId: detailResponse.data.threadId ?? undefined,
+          snippet: detailResponse.data.snippet ?? undefined,
+          labelIds: detailResponse.data.labelIds ?? undefined,
+          internalDate: detailResponse.data.internalDate ?? undefined,
+          payload: detailResponse.data.payload ?? undefined,
+        });
 
-        return {
-          id: detailResponse.data.id,
-          threadId: detailResponse.data.threadId,
-          snippet: detailResponse.data.snippet,
-          labelIds: detailResponse.data.labelIds ?? [],
-          internalDate: detailResponse.data.internalDate,
-          from: getHeader("From"),
-          subject: getHeader("Subject"),
-          date: getHeader("Date"),
-        };
+        await this.communicationRepository.save_email(
+          integration.profileID,
+          integration.id,
+          sanitizedEmail,
+        );
+
+        return sanitizedEmail;
       }),
     );
 

@@ -135,7 +135,36 @@ This is the exact flow a teammate should follow after the backend is running:
 
 ## Route summary
 
-### Authentication
+## How email cleanup and storage work
+
+When the backend fetches Gmail messages, it does two things:
+
+1. It cleans the email body so the stored content is usable for search and AI.
+2. It saves the email in the database only if that message has not already been stored for the same integration.
+
+### Email cleanup
+
+The email body goes through a cleanup pipeline before saving:
+
+- decode the Gmail message body
+- convert HTML to plain text
+- remove style, script, footer, navigation, and marketing boilerplate
+- remove invisible characters and broken formatting
+- normalize spacing and newlines
+- build the snippet from the cleaned body, not from the raw Gmail preview
+
+This keeps the stored content focused on the real message instead of ads, footers, or template noise.
+
+### Duplicate-safe storage
+
+Emails are stored in `Communication` with a unique rule on:
+
+- `integrationID`
+- `externalID`
+
+That means the same Gmail message will not be inserted twice for the same integration. Before creating a new record, the backend checks whether that message already exists and skips it if it does.
+
+## Where the profile ID comes from on the frontend
 
 - `POST /api/authentication/register`
 - `POST /api/authentication/login`
@@ -170,8 +199,12 @@ This is the exact flow a teammate should follow after the backend is running:
 - If Google connect fails, check the OAuth credentials and redirect URI.
 - If email fetch returns unauthorized, make sure the user is logged in and the `access_token` cookie is present.
 
-## Development command summary
+##  command summary
 
+- The Google callback route must stay public, because Google redirects there without your app cookie.
+- The Gmail fetch route is protected and expects the user to already be authenticated.
+- Email fetching only works after the profile has connected Gmail successfully.
+- Fetched emails are cleaned before storage, so the database keeps plain text that is better for search and AI features.
 ```bash
 docker compose up -d db
 pnpm install

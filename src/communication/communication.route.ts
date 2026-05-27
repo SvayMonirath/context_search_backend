@@ -2,6 +2,7 @@ import express from "express";
 import { verify_access_token } from "../authentication/authentication.middleware.js";
 import CommunicationController from "./communication.controller.js";
 import CommunicationService from "./communication.service.js";
+import CommunicationRepository from "./communication.repository.js";
 import IntegrationService from "../integration/integration.service.js";
 import GoogleOAuthService from "../integration/google-oauth.service.js";
 import IntegrationRepository from "../integration/integration.repository.js";
@@ -14,9 +15,11 @@ const integrationService = new IntegrationService(
   googleAuthService,
   integrationRepository,
 );
+const communicationRepository = new CommunicationRepository();
 const communicationService = new CommunicationService(
   integrationService,
   googleAuthService,
+  communicationRepository,
 );
 const communicationController = new CommunicationController(
   communicationService,
