@@ -79,12 +79,15 @@ model Communication {
 
   sender String
   content String
+  metadata Json?
 
   sent_at DateTime
 
   created_at DateTime @default(now())
 
   chunks CommunicationChunk[]
+
+  @@unique([integrationID, externalID])
 }
 
 model CommunicationChunk {

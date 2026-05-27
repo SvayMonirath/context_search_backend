@@ -1,8 +1,10 @@
 import GoogleOAuthService from "../integration/google-oauth.service.js";
 import IntegrationService from "../integration/integration.service.js";
 import { buildSanitizedEmail } from "./communication-email-sanitizer.js";
+import type CommunicationRepository from "./communication.repository.js";
 
 type GmailIntegration = {
+  id: string;
   profileID: string;
   accessToken: string | null;
   refreshToken: string | null;
@@ -24,9 +26,11 @@ class CommunicationService {
   constructor(
     private integrationService: IntegrationService,
     private googleOAuthService: GoogleOAuthService,
+    private communicationRepository: CommunicationRepository,
   ) {
     this.integrationService = integrationService;
     this.googleOAuthService = googleOAuthService;
+    this.communicationRepository = communicationRepository;
   }
 
   fetch_emails = async (profile_id: string, maxResults = 10) => {
@@ -72,7 +76,7 @@ class CommunicationService {
           format: "full",
         });
 
-        return buildSanitizedEmail({
+        const sanitizedEmail = buildSanitizedEmail({
           id: detailResponse.data.id ?? undefined,
           threadId: detailResponse.data.threadId ?? undefined,
           snippet: detailResponse.data.snippet ?? undefined,
@@ -80,6 +84,14 @@ class CommunicationService {
           internalDate: detailResponse.data.internalDate ?? undefined,
           payload: detailResponse.data.payload ?? undefined,
         });
+
+        await this.communicationRepository.save_email(
+          integration.profileID,
+          integration.id,
+          sanitizedEmail,
+        );
+
+        return sanitizedEmail;
       }),
     );
 
