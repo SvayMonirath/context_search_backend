@@ -92,6 +92,35 @@ Example:
 GET /api/communication/get_emails/550e8400-e29b-41d4-a716-446655440000?maxResults=10
 ```
 
+## How email cleanup and storage work
+
+When the backend fetches Gmail messages, it does two things:
+
+1. It cleans the email body so the stored content is usable for search and AI.
+2. It saves the email in the database only if that message has not already been stored for the same integration.
+
+### Email cleanup
+
+The email body goes through a cleanup pipeline before saving:
+
+- decode the Gmail message body
+- convert HTML to plain text
+- remove style, script, footer, navigation, and marketing boilerplate
+- remove invisible characters and broken formatting
+- normalize spacing and newlines
+- build the snippet from the cleaned body, not from the raw Gmail preview
+
+This keeps the stored content focused on the real message instead of ads, footers, or template noise.
+
+### Duplicate-safe storage
+
+Emails are stored in `Communication` with a unique rule on:
+
+- `integrationID`
+- `externalID`
+
+That means the same Gmail message will not be inserted twice for the same integration. Before creating a new record, the backend checks whether that message already exists and skips it if it does.
+
 ## Where the profile ID comes from on the frontend
 
 The frontend already has the `profileId` after the profile is created or selected.
@@ -131,3 +160,4 @@ pnpm build
 - The Google callback route must stay public, because Google redirects there without your app cookie.
 - The Gmail fetch route is protected and expects the user to already be authenticated.
 - Email fetching only works after the profile has connected Gmail successfully.
+- Fetched emails are cleaned before storage, so the database keeps plain text that is better for search and AI features.
