@@ -88,6 +88,23 @@ const LINE_NOISE_PATTERNS: RegExp[] = [
   /\b(?:mid\s*token|mid\s*sig|otp\s*token|trk\s*email|trk|lipi|eid)\b/i,
 ];
 
+const SECTION_CUTOFF_PATTERNS: RegExp[] = [
+  /no longer interested\??/i,
+  /was this email useful for what you needed\??/i,
+  /this email was generated for/i,
+  /see all notifications/i,
+  /see the full list/i,
+  /services to try/i,
+  /learn more about/i,
+  /view in browser|view web version/i,
+  /unsubscribe/i,
+  /manage preferences/i,
+  /privacy policy/i,
+  /terms of service|terms of use/i,
+  /copyright/i,
+  /all rights reserved/i,
+];
+
 const MARKETING_NOISE_PATTERNS: RegExp[] = [
   /get\s+\d+%\s+off/i,
   /limited time/i,
@@ -134,6 +151,11 @@ const CTA_SECTION_PATTERNS: RegExp[] = [
   /unsubscribe/i,
   /advertise/i,
   /safe list/i,
+  /join now/i,
+  /try it free/i,
+  /see all notifications/i,
+  /was this email useful for what you needed/i,
+  /no longer interested/i,
 ];
 
 const CSS_ARTIFACT_PATTERNS: RegExp[] = [
@@ -303,6 +325,40 @@ const normalizeWhitespace = (text: string): string => {
     .join("\n");
 };
 
+const cutBoilerplateSection = (lines: string[]): string[] => {
+  const cutoffIndex = lines.findIndex((line) =>
+    SECTION_CUTOFF_PATTERNS.some((pattern) => pattern.test(line)),
+  );
+
+  if (cutoffIndex < 0) {
+    return lines;
+  }
+
+  return lines.slice(0, cutoffIndex);
+};
+
+const isNavigationLine = (line: string): boolean => {
+  return (
+    /^courses?\s*\/\s*programs?\s*\/\s*my account$/i.test(line) ||
+    /^courses?\s*\/\s*programs?$/i.test(line) ||
+    /^my account$/i.test(line) ||
+    /^sign in$/i.test(line) ||
+    /^sign up$/i.test(line) ||
+    /^log in$/i.test(line) ||
+    /^log out$/i.test(line) ||
+    /^home$/i.test(line) ||
+    /^browse$/i.test(line) ||
+    /^explore$/i.test(line) ||
+    /^dashboard$/i.test(line) ||
+    /^settings$/i.test(line) ||
+    /^help$/i.test(line) ||
+    /^search$/i.test(line) ||
+    /^view all courses$/i.test(line) ||
+    /^browse all$/i.test(line) ||
+    /^recommended for you$/i.test(line)
+  );
+};
+
 const flattenContent = (text: string): string => text.replace(/\n/g, " ");
 
 const isNoiseLine = (line: string): boolean => {
@@ -391,9 +447,13 @@ const sanitizeText = (value: string | null | undefined): string | null => {
         !CTA_SECTION_PATTERNS.some((pattern) => pattern.test(line)),
     );
 
+  const mainBodyLines = cutBoilerplateSection(lines).filter(
+    (line) => !isNavigationLine(line),
+  );
+
   const deduped: string[] = [];
   const seen = new Set<string>();
-  for (const line of lines) {
+  for (const line of mainBodyLines) {
     if (!line) continue;
     if (seen.has(line)) continue;
     seen.add(line);

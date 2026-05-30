@@ -43,7 +43,7 @@ class CommunicationRepository {
 
   async get_by_id(communicationID: string) {
     return prisma.communication.findUnique({
-      where: { id: communicationID},
+      where: { id: communicationID },
     });
   }
   async delete_chunks(communicationID: string) {
@@ -51,7 +51,10 @@ class CommunicationRepository {
       where: { communicationID },
     });
   }
-  async store_chunks(communicationID: string, chunks: { chunkIndex: number; content: string }[]) {
+  async store_chunks(
+    communicationID: string,
+    chunks: { chunkIndex: number; content: string }[],
+  ) {
     return prisma.communicationChunk.createMany({
       data: chunks.map((chunk) => ({
         communicationID,
@@ -67,7 +70,9 @@ class CommunicationRepository {
     communicationID: string,
     chunks: { chunkIndex: number; content: string }[],
   ) {
-    const deleteOp = prisma.communicationChunk.deleteMany({ where: { communicationID } });
+    const deleteOp = prisma.communicationChunk.deleteMany({
+      where: { communicationID },
+    });
     const createOp = prisma.communicationChunk.createMany({
       data: chunks.map((chunk) => ({
         communicationID,

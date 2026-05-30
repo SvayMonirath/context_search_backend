@@ -12,7 +12,10 @@ export function chunkText(
   src = src.replace(/\t/g, " ").replace(/ +/g, " ").trim();
 
   // Split into paragraphs first (prefer keeping paragraphs intact)
-  const paragraphs = src.split(/\n\s*\n+/).map((p) => p.trim()).filter(Boolean);
+  const paragraphs = src
+    .split(/\n\s*\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
 
   // Split paragraphs into sentences heuristically
   const segments: string[] = [];

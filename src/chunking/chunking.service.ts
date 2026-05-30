@@ -6,7 +6,9 @@ const MAX_CHUNK_SIZE = 1000;
 const CHUNK_OVERLAP = 200;
 
 export class ChunkingService {
-  constructor(private readonly communicationRepository: CommunicationRepository) {
+  constructor(
+    private readonly communicationRepository: CommunicationRepository,
+  ) {
     this.communicationRepository = communicationRepository;
   }
 
@@ -17,7 +19,8 @@ export class ChunkingService {
 
   processCommunication = async (communicationID: string) => {
     try {
-      const communication = await this.communicationRepository.get_by_id(communicationID);
+      const communication =
+        await this.communicationRepository.get_by_id(communicationID);
 
       if (!communication) {
         throw new Error("Communication not found");
@@ -26,17 +29,25 @@ export class ChunkingService {
       // Build chunks from the cleaned content
       const rawChunks = this.chunkText(communication.content ?? "");
 
-      const structured: CommunicationChunkInput[] = rawChunks.map((chunk, index) => ({
-        chunkIndex: index,
-        content: chunk,
-      }));
+      const structured: CommunicationChunkInput[] = rawChunks.map(
+        (chunk, index) => ({
+          chunkIndex: index,
+          content: chunk,
+        }),
+      );
 
       // Replace chunks atomically (repository will handle transaction)
-      await this.communicationRepository.replace_chunks(communicationID, structured);
+      await this.communicationRepository.replace_chunks(
+        communicationID,
+        structured,
+      );
 
       return structured;
     } catch (error) {
-      throw new Error("Failed to process communication for chunking: " + (error as Error).message);
+      throw new Error(
+        "Failed to process communication for chunking: " +
+          (error as Error).message,
+      );
     }
   };
 }
