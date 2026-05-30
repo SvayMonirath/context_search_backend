@@ -102,6 +102,8 @@ model CommunicationChunk {
   embedding Embedding?
 
   created_at DateTime @default(now())
+
+  @@unique([communicationID, chunkIndex])
 }
 
 model Embedding {

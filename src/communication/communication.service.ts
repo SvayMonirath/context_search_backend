@@ -1,3 +1,4 @@
+import type { ChunkingService } from "../chunking/chunking.service.js";
 import GoogleOAuthService from "../integration/google-oauth.service.js";
 import IntegrationService from "../integration/integration.service.js";
 import { buildSanitizedEmail } from "./communication-email-sanitizer.js";
@@ -10,27 +11,17 @@ type GmailIntegration = {
   refreshToken: string | null;
 };
 
-type SanitizedEmail = {
-  id: string | null | undefined;
-  threadId: string | null | undefined;
-  snippet: string | null;
-  body: string | null;
-  labelIds: string[];
-  internalDate: string | null | undefined;
-  from: string | null;
-  subject: string | null;
-  date: string | null;
-};
-
 class CommunicationService {
   constructor(
     private integrationService: IntegrationService,
     private googleOAuthService: GoogleOAuthService,
     private communicationRepository: CommunicationRepository,
+    private chunkingService: ChunkingService,
   ) {
     this.integrationService = integrationService;
     this.googleOAuthService = googleOAuthService;
     this.communicationRepository = communicationRepository;
+    this.chunkingService = chunkingService;
   }
 
   fetch_emails = async (profile_id: string, maxResults = 10) => {
@@ -85,11 +76,15 @@ class CommunicationService {
           payload: detailResponse.data.payload ?? undefined,
         });
 
-        await this.communicationRepository.save_email(
+        // Save the email to the database and process it for chunking
+        const communication = await this.communicationRepository.save_email(
           integration.profileID,
           integration.id,
           sanitizedEmail,
         );
+
+        // Process the communication to create chunks
+        await this.chunkingService.processCommunication(communication.id);
 
         return sanitizedEmail;
       }),
