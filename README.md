@@ -5,7 +5,7 @@ This backend powers the context search app. It handles:
 - user authentication
 - profile creation
 - Google Gmail connection
-- fetching emails for a selected profile
+- fetching and cleaning emails for profiles
 
 ## 1. Clone the project
 
@@ -140,7 +140,7 @@ This is the exact flow a teammate should follow after the backend is running:
 When the backend fetches Gmail messages, it does two things:
 
 1. It cleans the email body so the stored content is usable for search and AI.
-2. It saves the email in the database only if that message has not already been stored for the same integration.
+2. It persists the email in an idempotent way (see Duplicate-safe storage below) and enqueues async chunking for embeddings/search.
 
 ### Email cleanup
 
@@ -153,16 +153,24 @@ The email body goes through a cleanup pipeline before saving:
 - normalize spacing and newlines
 - build the snippet from the cleaned body, not from the raw Gmail preview
 
-This keeps the stored content focused on the real message instead of ads, footers, or template noise.
+Implementation notes:
 
-### Duplicate-safe storage
+- The sanitizer lives in `src/communication/communication-email-sanitizer.ts` and uses `html-to-text` to produce deterministic plain text.
+- It strips CSS/script artifacts, removes common footer/CTA boilerplate patterns, trims invisible unicode, and normalizes whitespace and newlines.
+- The stored `snippet` is extracted from the cleaned body so previews and embeddings are based on the cleaned content.
 
-Emails are stored in `Communication` with a unique rule on:
+### Duplicate-safe storage and updates
 
-- `integrationID`
-- `externalID`
+Communications are unique on the pair `integrationID + externalID` in the database (see `prisma/schema.prisma`).
 
-That means the same Gmail message will not be inserted twice for the same integration. Before creating a new record, the backend checks whether that message already exists and skips it if it does.
+- Previously the backend skipped creating a new row when a duplicate was found. It now refreshes the existing Communication: when the same message is fetched again we update the stored `sender`, `content`, `snippet`, `sent_at`, and `metadata` fields so improvements in the sanitizer are persisted.
+- After the save/update, the service enqueues a chunking job so chunks/embeddings are rebuilt from the updated cleaned content.
+
+Files to inspect:
+
+- `src/communication/communication.repository.ts` — `save_email` now updates existing rows instead of silently skipping.
+- `src/communication/communication.service.ts` — enqueues `chunk-communication` jobs after save.
+- `src/message_broker/communication.worker.ts` and `src/chunking/chunking.service.ts` — worker and chunking flow that replace chunks atomically.
 
 ## Where the profile ID comes from on the frontend
 
@@ -191,6 +199,7 @@ That means the same Gmail message will not be inserted twice for the same integr
 - The email fetch route is protected and requires the login cookie.
 - The `profile_id` is created when the profile is created and then reused for Gmail connect and email fetching.
 - The Gmail integration must exist before emails can be fetched.
+- BullMQ is used for background processing and requires Redis. The worker is started by a side-effect import in `src/server.ts`.
 
 ## If something fails
 
@@ -198,15 +207,58 @@ That means the same Gmail message will not be inserted twice for the same integr
 - If Prisma fails, check `DATABASE_URL` and make sure Postgres is running.
 - If Google connect fails, check the OAuth credentials and redirect URI.
 - If email fetch returns unauthorized, make sure the user is logged in and the `access_token` cookie is present.
+- If background chunking jobs do not run, check Redis is reachable and the worker process is started (the code imports the worker in `src/server.ts`).
 
-##  command summary
+## Running Redis for local development
+
+BullMQ requires Redis. For local development add a `redis` service to `docker-compose.yml` or run Redis locally. Minimal example to add under `services`:
+
+```yaml
+redis:
+	image: redis:7
+	command: ["redis-server", "--appendonly", "yes"]
+	ports:
+		- "6379:6379"
+	volumes:
+		- redis-data:/data
+
+volumes:
+	redis-data:
+```
+
+Set these env vars in your `.env` for local development:
+
+```
+REDIS_HOST=redis
+REDIS_PORT=6379
+```
+
+Start Redis with:
+
+```bash
+docker compose up -d redis
+```
+
+For production use a managed Redis and enable auth/tls as needed.
+
+## Reprocessing existing Communications
+
+Existing rows in the database are not automatically reprocessed. To apply the improved sanitizer and rebuild chunks for already-stored Communications you can either:
+
+- Re-fetch messages for each profile (the `save_email` update will refresh rows and enqueue chunking), or
+- Run a one-off reprocess script that iterates Communications and calls `chunkingService.processCommunication(communicationID)` for each row. (This can be added as a small Node script under `scripts/`.)
+
+## Command summary
 
 - The Google callback route must stay public, because Google redirects there without your app cookie.
 - The Gmail fetch route is protected and expects the user to already be authenticated.
 - Email fetching only works after the profile has connected Gmail successfully.
-- Fetched emails are cleaned before storage, so the database keeps plain text that is better for search and AI features.
+- Fetched emails are cleaned before storage; duplicates refresh stored content and trigger re-chunking.
+
+Quick start (db + redis + dev server):
+
 ```bash
-docker compose up -d db
+docker compose up -d db redis
 pnpm install
 pnpm exec prisma generate
 pnpm exec prisma migrate dev
