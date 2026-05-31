@@ -5,7 +5,8 @@ class CommunicationRepository {
     try {
       const externalID = email.id ?? null;
 
-      // If this message already exists for the same integration, skip create.
+      // If this message already exists for the same integration, refresh it
+      // with the latest cleaned content instead of skipping.
       if (externalID) {
         const existingEmail = await prisma.communication.findFirst({
           where: {
@@ -15,7 +16,21 @@ class CommunicationRepository {
         });
 
         if (existingEmail) {
-          return existingEmail;
+          return prisma.communication.update({
+            where: { id: existingEmail.id },
+            data: {
+              sender: email.from ?? existingEmail.sender,
+              content: email.body ?? existingEmail.content,
+              sent_at: Number(email.internalDate)
+                ? new Date(Number(email.internalDate))
+                : existingEmail.sent_at,
+              metadata: {
+                subject: email.subject,
+                snippet: email.snippet,
+                labelIds: email.labelIds,
+              },
+            },
+          });
         }
       }
 

@@ -2,6 +2,7 @@ import type { ChunkingService } from "../chunking/chunking.service.js";
 import GoogleOAuthService from "../integration/google-oauth.service.js";
 import IntegrationService from "../integration/integration.service.js";
 import { buildSanitizedEmail } from "./communication-email-sanitizer.js";
+import { communicationQueue } from "../message_broker/communication.queue.js";
 import type CommunicationRepository from "./communication.repository.js";
 
 type GmailIntegration = {
@@ -84,7 +85,10 @@ class CommunicationService {
         );
 
         // Process the communication to create chunks
-        await this.chunkingService.processCommunication(communication.id);
+        // await this.chunkingService.processCommunication(communication.id);
+        await communicationQueue.add("chunk-communication", {
+          communicationID: communication.id,
+        });
 
         return sanitizedEmail;
       }),
