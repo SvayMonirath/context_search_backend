@@ -6,6 +6,7 @@ import CommunicationRepository from "./communication.repository.js";
 import IntegrationService from "../integration/integration.service.js";
 import GoogleOAuthService from "../integration/google-oauth.service.js";
 import IntegrationRepository from "../integration/integration.repository.js";
+import { ChunkingService } from "../chunking/chunking.service.js";
 
 const router: express.Router = express.Router();
 
@@ -16,10 +17,12 @@ const integrationService = new IntegrationService(
   integrationRepository,
 );
 const communicationRepository = new CommunicationRepository();
+const chunkingService = new ChunkingService(communicationRepository);
 const communicationService = new CommunicationService(
   integrationService,
   googleAuthService,
   communicationRepository,
+  chunkingService,
 );
 const communicationController = new CommunicationController(
   communicationService,

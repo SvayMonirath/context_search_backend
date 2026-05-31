@@ -36,6 +36,13 @@ class IntegrationController {
 
       const token = await this.integrationService.handle_google_callback(code);
 
+      if (!token || !token.access_token || !token.refresh_token) {
+        return res.status(400).json({
+          status: "error",
+          message: "Failed to retrieve access token or refresh token from Google",
+        });
+      }
+
       const integration_data: z.infer<typeof Store_Integration_Request> = {
         profileID: profile_id,
         type: "GMAIL",
@@ -100,8 +107,22 @@ class IntegrationController {
         });
       }
 
+      if(!integration.refreshToken){
+        return res.status(400).json({
+          status: "error",
+          message: "No refresh token available for this integration",
+        });
+      }
+
       // does this return a new refresh token or access token or both? usually only access token is refreshed, refresh token remains the same
       const refreshed_tokens = await this.integrationService.refresh_google_token(integration.refreshToken);
+
+      if(!refreshed_tokens || !refreshed_tokens.access_token){
+        return res.status(400).json({
+          status: "error",
+          message: "Failed to refresh access token using the refresh token",
+        });
+      }
 
       // Update the stored tokens in the database
       const updated_integration_data: z.infer<typeof Store_Integration_Request> = {
