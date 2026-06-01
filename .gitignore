@@ -45,6 +45,7 @@ Thumbs.db
 # Database
 *.sqlite
 *.db
+database_document.md
 
 # Security
 *.pem
