@@ -2,7 +2,7 @@ import { Worker } from "bullmq";
 import { redisConnection } from "./redis.client.js";
 import prisma from "../prisma.client.js";
 import EmbeddingRepository from "../embedding/embedding.repository.js";
-import { EmbeddingService } from "../embedding/embedding.service.js";
+import EmbeddingService from "../embedding/embedding.service.js";
 
 const embeddingRepository = new EmbeddingRepository();
 const embeddingService = new EmbeddingService(embeddingRepository);

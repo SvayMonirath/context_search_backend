@@ -1,7 +1,7 @@
 import { pipeline } from "@xenova/transformers";
 import EmbeddingRepository from "./embedding.repository.js";
 
-export class EmbeddingService {
+class EmbeddingService {
   constructor(private readonly embeddingRepository: EmbeddingRepository) {
     this.embeddingRepository = embeddingRepository;
   }
@@ -34,4 +34,18 @@ export class EmbeddingService {
 
     return vector;
   }
+
+  async query_embedding(query: string): Promise<number[]> {
+    await this.init();
+    const output = await this.extractor(query, {
+      pooling: "mean",
+      normalize: true,
+    });
+
+    return Array.from(output.data as Float32Array) as number[];
+  }
 }
+
+export default EmbeddingService;
+
+

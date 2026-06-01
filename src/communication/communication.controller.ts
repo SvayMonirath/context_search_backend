@@ -21,7 +21,7 @@ class CommunicationController {
 
       const maxResults = req.query.maxResults
         ? Number(req.query.maxResults)
-        : 3;
+        : 20;
 
       const emails = await this.communicationService.fetch_emails(
         profile_id,
