@@ -34,8 +34,13 @@ type GmailMessageRecord = {
 type EmailCategory =
   | "important"
   | "social"
+  | "article"
+  | "forum"
+  | "job"
+  | "course"
   | "promotion"
   | "newsletter"
+  | "ad"
   | "spam";
 
 type SanitizedEmail = {
@@ -49,6 +54,8 @@ type SanitizedEmail = {
   subject: string | null;
   date: string | null;
   category: EmailCategory;
+  importance: number;
+  indexable: boolean;
 };
 
 const MAX_BODY_LENGTH = 4000;
@@ -112,6 +119,28 @@ const MARKETING_NOISE_PATTERNS: RegExp[] = [
   /buy now|shop now|claim your offer|try for free/i,
   /advertis(e|ement)|promoted|sponsored/i,
 ];
+
+const LOW_VALUE_CATEGORIES = new Set<EmailCategory>([
+  "promotion",
+  "newsletter",
+  "ad",
+  "spam",
+  "job",
+  "course",
+]);
+
+const IMPORTANCE_BY_CATEGORY: Record<EmailCategory, number> = {
+  important: 1,
+  article: 0.95,
+  forum: 0.85,
+  social: 0.55,
+  job: 0.2,
+  course: 0.25,
+  promotion: 0.1,
+  newsletter: 0.15,
+  ad: 0.05,
+  spam: 0,
+};
 
 const NEWSLETTER_INLINE_PATTERNS: RegExp[] = [
   /Sign\s*Up\s*\[?\d*\]?\s*\|\s*Advertise\s*\[?\d*\]?\s*\|\s*View\s*Online\s*\[?\d*\]?/gi,
@@ -511,6 +540,15 @@ const classifyEmail = (
     return "promotion";
   if (/newsletter|digest|tldr|update/.test(haystack)) return "newsletter";
   if (/spam|lottery|winner|claim now/.test(haystack)) return "spam";
+  if (/job|hiring|vacanc|career|apply now|jobs? board/.test(haystack))
+    return "job";
+  if (/course|class|bootcamp|workshop|webinar|certificate/.test(haystack))
+    return "course";
+  if (/forum|discussion|thread|community|question|q&a/.test(haystack))
+    return "forum";
+  if (/article|guide|tutorial|how to|learn more|lesson/.test(haystack))
+    return "article";
+  if (/advertis(e|ement)|sponsored|banner|ad\b/.test(haystack)) return "ad";
 
   return "important";
 };
@@ -530,7 +568,7 @@ const buildSanitizedEmail = (message: GmailMessageRecord): SanitizedEmail => {
     (id): id is string => typeof id === "string" && id.length > 0,
   );
 
-  return {
+  return withCategoryMetadata({
     id: message.id ?? null,
     threadId: message.threadId ?? null,
     snippet: buildSnippet(body),
@@ -541,6 +579,17 @@ const buildSanitizedEmail = (message: GmailMessageRecord): SanitizedEmail => {
     subject: normalizedSubject,
     date: getHeader("Date"),
     category: classifyEmail(normalizedFrom, normalizedSubject, cleanLabels),
+    importance: 0,
+    indexable: true,
+  });
+};
+
+const withCategoryMetadata = (email: SanitizedEmail): SanitizedEmail => {
+  const importance = IMPORTANCE_BY_CATEGORY[email.category] ?? 0.5;
+  return {
+    ...email,
+    importance,
+    indexable: !LOW_VALUE_CATEGORIES.has(email.category),
   };
 };
 

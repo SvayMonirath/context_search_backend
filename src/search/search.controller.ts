@@ -9,15 +9,20 @@ class SearchController {
   search = async (req: express.Request, res: express.Response) => {
     try {
       const rawQuery =
-        typeof req.body.query === "string"
-          ? req.body.query
-          : typeof req.body.q === "string"
-            ? req.body.q
-            : undefined;
+        typeof req.query.query === "string"
+          ? req.query.query
+          : typeof req.query.q === "string"
+            ? req.query.q
+            : typeof req.body?.query === "string"
+              ? req.body.query
+              : typeof req.body?.q === "string"
+                ? req.body.q
+                : undefined;
 
       const data = Search_Request.parse({ query: rawQuery });
-      const limit: number | undefined = req.body.limit
-        ? parseInt(req.body.limit as string)
+      const rawLimit = req.query.limit ?? req.body?.limit;
+      const limit: number | undefined = rawLimit
+        ? parseInt(rawLimit as string)
         : undefined;
 
       const results = await this.searchService.queryVector(data, limit);
@@ -32,7 +37,7 @@ class SearchController {
       res.status(400).json({
         error: "Invalid request data",
         details: message,
-        hint: "Use ?query=your text or ?q=your text",
+        hint: "Use ?query=your text or ?q=your text (query string preferred)",
       });
     }
   };

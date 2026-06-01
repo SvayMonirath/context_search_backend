@@ -28,6 +28,9 @@ class CommunicationRepository {
                 subject: email.subject,
                 snippet: email.snippet,
                 labelIds: email.labelIds,
+                category: email.category,
+                importance: email.importance,
+                indexable: email.indexable,
               },
             },
           });
@@ -48,6 +51,9 @@ class CommunicationRepository {
             subject: email.subject,
             snippet: email.snippet,
             labelIds: email.labelIds,
+            category: email.category,
+            importance: email.importance,
+            indexable: email.indexable,
           },
         },
       });
