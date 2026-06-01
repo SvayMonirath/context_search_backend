@@ -248,6 +248,27 @@ Existing rows in the database are not automatically reprocessed. To apply the im
 - Re-fetch messages for each profile (the `save_email` update will refresh rows and enqueue chunking), or
 - Run a one-off reprocess script that iterates Communications and calls `chunkingService.processCommunication(communicationID)` for each row. (This can be added as a small Node script under `scripts/`.)
 
+## Persistent chunk storage
+
+Chunks are stored persistently in the primary database so they are the canonical source for later retrieval and reassembly.
+
+- Storage model: each chunk row references the parent `Communication` (via `communicationID`) and includes a `chunkIndex` to keep order, the chunk `text` (or `content`), and optional metadata (created/updated timestamps, length).
+- Atomic replace: when the chunking worker rebuilds chunks we replace the previous set atomically (see `communication.repository.replace_chunks` which uses a transaction + `createMany` with `skipDuplicates`). This avoids partial state where only some chunks are updated.
+- Why keep chunks in Postgres: it makes reprocessing, debugging, and migration easier (you have a durable record), while the vector DB (if used) stores vectors for fast similarity search. Use Postgres as the canonical text source and sync vectors into your chosen vector DB.
+- Reassembly: because each chunk stores `communicationID` + `chunkIndex`, you can fetch and concatenate ordered chunks to reconstruct a larger context or to include neighbor chunks when answering queries.
+
+Practical notes:
+
+- If you change the chunking parameters (`maxSize`, `overlap`) you should reprocess stored Communications so chunks reflect the new policy.
+- Keep chunk text and chunk metadata small to control database size; store vectors in a vector DB for efficient nearest-neighbor retrieval.
+- The chunking worker replaces chunks after `save_email` updates the cleaned content, so stored chunks always reflect the latest cleaned text after normal fetch/update flows.
+
+Files to inspect for chunk storage and replacement:
+
+- `prisma/schema.prisma` — `CommunicationChunk` model (fields and indexes).
+- `src/communication/communication.repository.ts` — `replace_chunks` implementation.
+- `src/message_broker/communication.worker.ts` — worker that triggers chunking jobs.
+
 ## Command summary
 
 - The Google callback route must stay public, because Google redirects there without your app cookie.
