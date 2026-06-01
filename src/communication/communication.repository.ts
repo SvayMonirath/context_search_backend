@@ -85,19 +85,34 @@ class CommunicationRepository {
     communicationID: string,
     chunks: { chunkIndex: number; content: string }[],
   ) {
-    const deleteOp = prisma.communicationChunk.deleteMany({
-      where: { communicationID },
-    });
-    const createOp = prisma.communicationChunk.createMany({
-      data: chunks.map((chunk) => ({
-        communicationID,
-        chunkIndex: chunk.chunkIndex,
-        content: chunk.content,
-      })),
-      skipDuplicates: true,
-    });
+    // Use a callback-style transaction so we can return the created rows.
+    return prisma.$transaction(async (tx) => {
+      // Remove embeddings first because Embedding -> CommunicationChunk FK is RESTRICT.
+      await tx.embedding.deleteMany({
+        where: {
+          chunk: {
+            communicationID,
+          },
+        },
+      });
 
-    return prisma.$transaction([deleteOp, createOp]);
+      await tx.communicationChunk.deleteMany({ where: { communicationID } });
+
+      await tx.communicationChunk.createMany({
+        data: chunks.map((chunk) => ({
+          communicationID,
+          chunkIndex: chunk.chunkIndex,
+          content: chunk.content,
+        })),
+        skipDuplicates: true,
+      });
+
+      // Return the newly created (or existing) chunks so callers have their IDs.
+      return tx.communicationChunk.findMany({
+        where: { communicationID },
+        orderBy: { chunkIndex: "asc" },
+      });
+    });
   }
 }
 

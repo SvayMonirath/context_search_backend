@@ -86,6 +86,7 @@ class CommunicationService {
 
         // Process the communication to create chunks
         // await this.chunkingService.processCommunication(communication.id);
+        // explain the syntax 
         await communicationQueue.add("chunk-communication", {
           communicationID: communication.id,
         });
