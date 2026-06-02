@@ -8,10 +8,7 @@ class IntegrationService {
   constructor(
     private googleOAuthservice: GoogleOAuthService,
     private integrationRepository: IntegrationRepository,
-  ) {
-    this.googleOAuthservice = googleOAuthservice;
-    this.integrationRepository = integrationRepository;
-  }
+  ) {}
 
   connect_google = (profile_id: string) => {
     return this.googleOAuthservice.generateAuthUrl(profile_id);

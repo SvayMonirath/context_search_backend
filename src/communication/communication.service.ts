@@ -84,8 +84,19 @@ class CommunicationService {
           sanitizedEmail,
         );
 
+        if (sanitizedEmail.indexable === false) {
+          // Keep the communication record, but remove any previous chunks/embeddings
+          // so this low-value message is not part of semantic search.
+          await this.communicationRepository.replace_chunks(
+            communication.id,
+            [],
+          );
+          return sanitizedEmail;
+        }
+
         // Process the communication to create chunks
         // await this.chunkingService.processCommunication(communication.id);
+        // explain the syntax
         await communicationQueue.add("chunk-communication", {
           communicationID: communication.id,
         });

@@ -25,6 +25,6 @@ export const communicationWorker = new Worker(
   },
   {
     connection: redisConnection,
-    concurrency: Number(process.env.WORKER_CONCURRENCY) || 5,
+    concurrency: Number(process.env.COMMUNICATION_WORKER_CONCURRENCY) || 5,
   },
 );
