@@ -4,11 +4,11 @@ class SearchRepository {
   async hybridSearch(
     queryText: string,
     queryVector: number[],
-    limit: number = 6, // IMPORTANT: reduce default
+    limit: number = 10,
   ) {
     const vectorString = `[${queryVector.join(",")}]`;
 
-    const candidateLimit = Math.max(limit * 5, 50);
+    const candidateLimit = Math.max(limit * 8, 80);
 
     const results: any[] = await prisma.$queryRaw`
       WITH candidates AS (
@@ -17,55 +17,71 @@ class SearchRepository {
           cc.content,
           cc."communicationID",
 
-          -- Vector distance (lower = better)
-          e.vector <=> ${vectorString}::vector AS distance,
+          c.sender,
+          c.type,
+          c.sent_at,
+          c.created_at,
 
-          -- Keyword match
-          ts_rank_cd(
-            to_tsvector('english', COALESCE(cc.content, '') || ' ' || COALESCE(cast(c.metadata->>'subject' AS text), '')),
-            plainto_tsquery('english', ${queryText})
-          ) AS keyword_score,
-
+          COALESCE(c.metadata->>'subject', '') AS subject,
+          COALESCE(c.metadata->>'category', 'important') AS category,
           COALESCE((c.metadata->>'importance')::double precision, 0.5) AS importance,
-          COALESCE(c.metadata->>'category', 'important') AS category
+
+          -- IMPORTANT FIX: better distance handling
+          (1 - (e.vector <=> ${vectorString}::vector)) AS vector_score,
+
+          ts_rank_cd(
+            to_tsvector(
+              'english',
+              CONCAT_WS(
+                ' ',
+                COALESCE(cc.content, ''),
+                COALESCE(c.sender, ''),
+                COALESCE(c.metadata->>'subject', '')
+              )
+            ),
+            plainto_tsquery('english', ${queryText})
+          ) AS keyword_score
 
         FROM "Embedding" e
         JOIN "CommunicationChunk" cc ON e."chunkID" = cc.id
         JOIN "Communication" c ON cc."communicationID" = c.id
-        WHERE COALESCE((c.metadata->>'indexable')::boolean, true) = true
+
+        WHERE
+          COALESCE((c.metadata->>'indexable')::boolean, true) = true
       ),
 
       scored AS (
         SELECT
           *,
 
-          -- Normalize vector similarity (convert distance → similarity)
-          (1 / (1 + distance)) AS vector_score,
-
-          -- Normalize keyword score (safe clamp)
-          LEAST(keyword_score, 1.0) AS keyword_score_norm,
-
-          -- Final score
           (
-            (0.55 * (1 / (1 + distance))) +
-            (0.30 * LEAST(keyword_score, 1.0)) +
-            (0.15 * importance) +
+            (0.65 * vector_score) +
+            (0.20 * LEAST(keyword_score, 1.0)) +
+            (0.10 * importance)
+
+            +
+
+            CASE
+              WHEN LOWER(sender) LIKE LOWER('%' || ${queryText} || '%')
+              THEN 0.05 ELSE 0
+            END
+
+            +
 
             CASE category
-              WHEN 'article' THEN 0.06
-              WHEN 'forum' THEN 0.04
-              WHEN 'important' THEN 0.03
-
-              WHEN 'social' THEN -0.05
-              WHEN 'course' THEN -0.10
-              WHEN 'job' THEN -0.10
-              WHEN 'newsletter' THEN -0.15
-              WHEN 'promotion' THEN -0.20
-              WHEN 'ad' THEN -0.25
+              WHEN 'important' THEN 0.05
+              WHEN 'article' THEN 0.03
+              WHEN 'forum' THEN 0.02
+              WHEN 'social' THEN -0.02
+              WHEN 'course' THEN -0.05
+              WHEN 'job' THEN -0.05
+              WHEN 'newsletter' THEN -0.08
+              WHEN 'promotion' THEN -0.15
+              WHEN 'ad' THEN -0.20
               WHEN 'spam' THEN -0.40
-
               ELSE 0
             END
+
           ) AS score
 
         FROM candidates
@@ -73,41 +89,36 @@ class SearchRepository {
 
       SELECT *
       FROM scored
-      WHERE
-        score > 0.15
-        AND category != 'spam'
-        AND category != 'ad'
-        AND category != 'promotion'
-
+      WHERE category NOT IN ('spam', 'ad')
       ORDER BY score DESC
       LIMIT ${candidateLimit};
     `;
 
-    // ---------------------------------------------------
-    // 🧠 POST-PROCESSING (IMPORTANT FIX LAYER)
-    // ---------------------------------------------------
-
-    const filtered = this.applyDiversityFilter(results, limit);
-
-    return filtered;
+    return this.applyDiversityFilter(results, limit);
   }
 
-  /**
-   * Prevents same-category domination (VERY IMPORTANT)
-   */
   private applyDiversityFilter(results: any[], limit: number) {
-    const seenCategories = new Map<string, number>();
+    const categoryCount = new Map<string, number>();
+    const seenCommunications = new Set<string>();
+
     const final: any[] = [];
 
     for (const item of results) {
-      const cat = item.category || "unknown";
-      const count = seenCategories.get(cat) || 0;
+      const category = item.category || "unknown";
 
-      // allow max 2 per category
-      if (count >= 2) continue;
+      const currentCount = categoryCount.get(category) || 0;
+
+      // softer diversity constraints
+      const maxPerCategory = Math.ceil(limit * 0.5);
+
+      if (currentCount >= maxPerCategory) continue;
+
+      if (seenCommunications.has(item.communicationID)) continue;
+
+      seenCommunications.add(item.communicationID);
+      categoryCount.set(category, currentCount + 1);
 
       final.push(item);
-      seenCategories.set(cat, count + 1);
 
       if (final.length >= limit) break;
     }
