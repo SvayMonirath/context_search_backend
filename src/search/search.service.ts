@@ -52,7 +52,15 @@ class SearchService {
         .sort((a, b) => b.finalScore - a.finalScore)
         .slice(0, limit ?? 10);
 
-      return reranked;
+      // build context string for RAG
+      const context = reranked
+        .map(
+          (item) =>
+            `Content: ${item.content}\nSource: ${item.source}\n\n`,
+        )
+        .join("");
+
+      return { results: reranked, context };
     } catch (error) {
       throw new Error("Failed to perform semantic search");
     }

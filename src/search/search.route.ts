@@ -6,6 +6,7 @@ import EmbeddingService from "../embedding/embedding.service.js";
 import EmbeddingRepository from "../embedding/embedding.repository.js";
 import SearchRepository from "./search.repository.js";
 import SearchController from "./search.controller.js";
+import RAGService from "../../RAG/rag.service.js";
 
 
 const router: express.Router = express.Router();
@@ -14,7 +15,8 @@ const searchRepository = new SearchRepository();
 const embeddingRepository = new EmbeddingRepository();
 const embeddingService = new EmbeddingService(embeddingRepository);
 const searchService = new SearchService(searchRepository, embeddingService);
-const searchController = new SearchController(searchService);
+const ragService = new RAGService();
+const searchController = new SearchController(searchService, ragService);
 
 router.use(verify_access_token);
 
