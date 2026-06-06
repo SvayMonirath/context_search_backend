@@ -4,6 +4,7 @@ import IntegrationService from "../integration/integration.service.js";
 import { buildSanitizedEmail } from "./communication-email-sanitizer.js";
 import { communicationQueue } from "../message_broker/communication.queue.js";
 import type CommunicationRepository from "./communication.repository.js";
+import type IntegrationRepository from "../integration/integration.repository.js";
 
 type GmailIntegration = {
   id: string;
@@ -18,6 +19,7 @@ class CommunicationService {
     private googleOAuthService: GoogleOAuthService,
     private communicationRepository: CommunicationRepository,
     private chunkingService: ChunkingService,
+    private integrationRepository: IntegrationRepository,
   ) {
     this.integrationService = integrationService;
     this.googleOAuthService = googleOAuthService;
@@ -30,9 +32,7 @@ class CommunicationService {
       throw new Error("Profile ID is required");
     }
 
-    const integration = (await this.integrationService.get_gmail_integration(
-      profile_id,
-    )) as GmailIntegration | null;
+    const integration = await this.integrationRepository.get_active_gmail_integration(profile_id);
 
     if (!integration) {
       throw new Error("Gmail integration not found for the specified profile");

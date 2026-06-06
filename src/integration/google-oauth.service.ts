@@ -58,6 +58,23 @@ class GoogleOAuthService {
 
     return google.gmail({ version: "v1", auth: oauth2Client });
   }
+
+  // do we use profile_id or access_token to revoke the token? I think we should use access_token to revoke the token, but we need to get the access_token from the database using the profile_id
+  async disconnect_google(access_token: string) {
+    // Revoke the token using Google's token revocation endpoint
+    const revokeUrl = `https://oauth2.googleapis.com/revoke?token=${access_token}`;
+    try {
+      await fetch(revokeUrl, {
+        method: "POST",
+        headers: {
+          "Content-type": "application/x-www-form-urlencoded",
+        },
+      });
+    } catch (error) {
+      console.error("Error revoking Google token:", error);
+      throw new Error("Failed to disconnect Google account");
+    }
+  }
 }
 
 export default GoogleOAuthService;

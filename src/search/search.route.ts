@@ -6,8 +6,7 @@ import EmbeddingService from "../embedding/embedding.service.js";
 import EmbeddingRepository from "../embedding/embedding.repository.js";
 import SearchRepository from "./search.repository.js";
 import SearchController from "./search.controller.js";
-import RAGService from "../../RAG/rag.service.js";
-
+import RAGService from "../RAG/rag.service.js";
 
 const router: express.Router = express.Router();
 

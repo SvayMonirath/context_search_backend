@@ -24,7 +24,7 @@ export const embeddingWorker = new Worker(
         if (!chunk) continue;
 
         try {
-          await embeddingService.embed(chunkID, chunk.content ?? "");
+          await embeddingService.embed(chunkID, chunk.content ?? "", "local_minilm");
         } catch (err) {
           console.error("Failed to embed chunk", chunkID, err);
           throw err;

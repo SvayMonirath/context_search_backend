@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
+import cors from "cors";
 
 // routes
 import { router as Authentication_Router } from "./authentication/authentication.route.js";
@@ -14,6 +15,10 @@ const app: express.Application = express();
 
 app.use(express.json());
 app.use(cookieParser());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+  credentials: true,
+}));
 
 // register routes
 app.use("/api/authentication", Authentication_Router);

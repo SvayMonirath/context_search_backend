@@ -22,10 +22,27 @@ model User {
   profiles Profile[]
 }
 
+enum ProfileType {
+  STANDARD
+  PRIVATE
+}
+
+enum ProfileColors {
+  BLUE
+  CYAN
+  GREEN
+  ORANGE
+  RED
+  PURPLE
+}
+
 model Profile {
   id String @id @default(cuid())
   name String @unique
   user_id String
+  password String?
+  type ProfileType @default(STANDARD)
+  color ProfileColors @default(BLUE)
 
   created_at DateTime @default(now())
 
@@ -48,6 +65,7 @@ model Integration {
   profile Profile @relation(fields: [profileID], references: [id])
 
   communications Communication[]
+  isActive Boolean @default(true)
 
   type IntegrationType
 

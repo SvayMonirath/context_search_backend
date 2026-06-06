@@ -1,5 +1,6 @@
 import { pipeline } from "@xenova/transformers";
 import EmbeddingRepository from "./embedding.repository.js";
+import type { VectorModel } from "@prisma/client";
 
 class EmbeddingService {
   constructor(private readonly embeddingRepository: EmbeddingRepository) {
@@ -11,7 +12,7 @@ class EmbeddingService {
     if (!this.extractor) {
       this.extractor = await pipeline(
         "feature-extraction",
-        "Xenova/all-MiniLM-L6-v2",
+        process.env.EMBEDDING_MODEL
       );
     }
   }
@@ -20,7 +21,7 @@ class EmbeddingService {
   async embed(
     chunkID: string,
     text: string,
-    model = "local_minilm",
+    model: VectorModel
   ): Promise<number[]> {
     await this.init();
     const output = await this.extractor(text, {

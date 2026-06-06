@@ -23,6 +23,7 @@ const communicationService = new CommunicationService(
   googleAuthService,
   communicationRepository,
   chunkingService,
+  integrationRepository,
 );
 const communicationController = new CommunicationController(
   communicationService,
