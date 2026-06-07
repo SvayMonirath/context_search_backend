@@ -71,13 +71,13 @@ class SearchService {
       const context = finalResults
         .map(
           (item) => `Sender: ${item.sender ?? "Unknown"}
-Type: ${item.type ?? "Unknown"}
-Subject: ${item.subject ?? "No Subject"}
-Date: ${item.sent_at ?? "Unknown"}
-Category: ${item.category ?? "Unknown"}
+          Type: ${item.type ?? "Unknown"}
+          Subject: ${item.subject ?? "No Subject"}
+          Date: ${item.sent_at ?? "Unknown"}
+          Category: ${item.category ?? "Unknown"}
 
-Content:
-${item.content}`,
+          Content:
+          ${item.content}`,
         )
         .join("\n\n---\n\n");
 

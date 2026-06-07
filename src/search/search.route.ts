@@ -19,6 +19,7 @@ const searchController = new SearchController(searchService, ragService);
 
 router.use(verify_access_token);
 
-router.post("/", searchController.search);
+// router.post("/", searchController.search);
+router.post("/stream", searchController.streamSearch);
 
 export { router as Search_Router };

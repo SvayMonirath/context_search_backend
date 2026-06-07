@@ -141,7 +141,7 @@ class IntegrationController {
   refresh_google_token = async(req: express.Request, res: express.Response) => {
     try {
       const profile_id: any  = req.params.profile_id;
-      const integration = await this.integrationService.get_active_gmail_integration(profile_id);
+      const integration = await this.integrationService.get_inactive_gmail_integration(profile_id);
 
       if (!integration) {
         return res.status(404).json({

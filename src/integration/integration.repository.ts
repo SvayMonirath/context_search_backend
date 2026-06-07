@@ -61,6 +61,19 @@ class IntegrationRepository {
     })
   }
 
+  get_inactive_gmail_integration = async (profile_id: string ) => {
+     return await prisma.integration.findFirst({
+      where: {
+        profileID: profile_id,
+        type: "GMAIL",
+        isActive: false,
+        refreshToken: {
+          not: null,
+        },
+      }
+    })
+   }
+
   get_integration_by_id = async (integration_id: string) => {
     return await prisma.integration.findUnique({
       where: {
