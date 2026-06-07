@@ -58,6 +58,13 @@ enum IntegrationType {
   TELEGRAM
 }
 
+enum SyncStatus {
+  IDLE
+  SYNCING
+  SUCCESS
+  FAILED
+}
+
 model Integration {
   id String @id @default(cuid())
 
@@ -71,6 +78,11 @@ model Integration {
 
   accessToken String?
   refreshToken String?
+
+  syncStatus SyncStatus @default(IDLE)
+  lastSyncedAt DateTime?
+
+  gmailHistoryId String?
 
   metadata Json?
 

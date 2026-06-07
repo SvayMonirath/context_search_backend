@@ -1,7 +1,7 @@
 import z from "zod";
 import prisma from "../prisma.client.js";
 import { Store_Integration_Request } from "./integration.request.js";
-import { IntegrationType } from '@prisma/client';
+import { IntegrationType, type Integration } from '@prisma/client';
 
 class IntegrationRepository {
   disconnect_integration = async (integration_id: string) => {
@@ -72,6 +72,19 @@ class IntegrationRepository {
       }
     });
   }
+
+  update_integration = async (integration_id: string, data: Integration) => {
+    try {
+      return await prisma.integration.update({
+        where: {
+          id: integration_id,
+        },
+        data: data,
+      });
+    } catch (error) {
+      throw new Error("Failed to update integration data");
+    }
+  };
 
   update_integration_token = async (
     profile_id: string,
