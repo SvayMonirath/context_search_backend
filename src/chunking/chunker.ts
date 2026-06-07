@@ -1,5 +1,6 @@
 // Pure chunking helper: split text into chunks with paragraph/sentence preference,
 // character-safe boundaries, and optional overlap.
+
 export function chunkText(
   content: string,
   maxSize = 1000,

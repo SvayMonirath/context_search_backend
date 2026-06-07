@@ -53,6 +53,10 @@ class IntegrationRepository {
         refreshToken: {
           not: null,
         },
+        accessToken: {
+          not: null,
+        },
+        isActive: true,
       }
     })
   }

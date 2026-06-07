@@ -39,6 +39,7 @@ export const communicationWorker = new Worker(
       if (!profileID) {
         throw new Error("Profile ID is required for Gmail sync");
       }
+      console.log("(Communication Worker) Starting Gmail sync for profile ID:", profileID);
       await communicationService.sync_gmail(profileID);
     }
   },

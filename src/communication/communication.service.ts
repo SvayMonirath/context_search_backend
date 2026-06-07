@@ -1,3 +1,4 @@
+import pLimit from "p-limit";
 import type { ChunkingService } from "../chunking/chunking.service.js";
 import GoogleOAuthService from "../integration/google-oauth.service.js";
 import IntegrationService from "../integration/integration.service.js";
@@ -127,9 +128,13 @@ class CommunicationService {
       syncStatus: status,
     });
 
+    console.log(`(Communication Service) Setting integration ${integration.id} status to SYNCING`);
+
     if(!integration.gmailHistoryId) {
+      console.log(`(Communication Service) Starting initial sync for integration ${integration.id}`);
       await this.initial_gmail_sync(integration);
     } else {
+      console.log(`(Communication Service) Starting incremental sync for integration ${integration.id}`);
       await this.incremental_gmail_sync(integration);
     }
     status = "SUCCESS";
@@ -137,9 +142,14 @@ class CommunicationService {
       syncStatus: status,
       lastSyncedAt: new Date(),
     });
+    console.log(`(Communication Service) Setting integration ${integration.id} status to SUCCESS`);
   }
 
   initial_gmail_sync = async (integration: any) => {
+
+    const MAX_INITIAL_SYNC_MESSAGES = parseInt(process.env.GMAIL_INITIAL_SYNC_LIMIT || "1000"); // Safety cap to prevent syncing too many emails at once
+    const limit = pLimit(5); // Limit concurrency to 5
+
     const gmailClient = await this.googleOAuthService.create_gmail_client({
       profileID: integration.profileID,
       accessToken: integration.accessToken,
@@ -149,6 +159,9 @@ class CommunicationService {
     let pageToken: string | undefined;
     let latestHistoryId: string | undefined;
 
+    let totalMessages = 0;
+
+    console.time(`Processing message batch for integration ${integration.id}`);
     do {
       const res = await gmailClient.users.messages.list({
         userId: "me",
@@ -157,24 +170,27 @@ class CommunicationService {
       });
 
       const messages = res.data.messages ?? [];
+      totalMessages += messages.length;
 
-      for (const msg of messages) {
-        if (!msg.id) continue;
+      await Promise.all(messages.map((msg) => {
+        if (!msg.id) return Promise.resolve();
 
-        const result = await this.process_gmail_message(
+        return limit(() => this.process_gmail_message(
           gmailClient,
           integration,
-          msg.id,
-        );
-
-        if (result?.historyId) {
-          latestHistoryId = result.historyId;
-        }
-      }
+          msg.id!,
+        ).then((result) => {
+          if (result?.historyId) {
+            latestHistoryId = result.historyId;
+          }
+        }));
+      }));
 
       pageToken = res.data.nextPageToken;
-    } while (pageToken);
+    } while (pageToken && totalMessages <= MAX_INITIAL_SYNC_MESSAGES);
 
+    console.timeEnd(`Processing message batch for integration ${integration.id}`);
+    console.log(`(Communication Service) Initial Gmail sync completed for integration ${integration.id}. Total messages processed: ${totalMessages}. Latest history ID: ${latestHistoryId}`);
     if (latestHistoryId) {
       await this.integrationRepository.update_integration(integration.id, {
         gmailHistoryId: latestHistoryId,
@@ -202,35 +218,43 @@ class CommunicationService {
         historyTypes: ["messageAdded"],
       });
 
+      let total_added_messages = 0;
+
       const history = res.data.history ?? [];
 
       let newHistoryId = startHistoryId;
 
+      console.time(`Processing message batch for integration ${integration.id}`);
       for (const record of history) {
         if(record.id) {
           newHistoryId = record.id;
         }
 
         if(!record.messagesAdded) continue;
+        total_added_messages += record.messagesAdded.length;
 
-        for (const msg of record.messagesAdded) {
-          if (!msg.message?.id) continue;
+        await Promise.all(record.messagesAdded.map((msg) => {
+          if (!msg.message?.id) return Promise.resolve();
 
-          await this.process_gmail_message(
+          return this.process_gmail_message(
             gmailClient,
             integration,
-            msg.message.id,
+            msg.message.id!,
           );
-        }
+        }));
 
         if (record.id) {
           newHistoryId = record.id;
         }
       }
 
+      console.timeEnd(`Processing message batch for integration ${integration.id}`);
+      console.log(`(Communication Service) Incremental Gmail sync completed for integration ${integration.id}. Total added messages: ${total_added_messages}. New history ID: ${newHistoryId}`);
+
       await this.integrationRepository.update_integration(integration.id, {
         gmailHistoryId: newHistoryId,
       });
+
     } catch (error: any) {
       if(error.code === 404 || error.message?.includes("historyId")) {
         return await this.initial_gmail_sync(integration);
