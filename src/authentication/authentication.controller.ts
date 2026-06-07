@@ -50,9 +50,6 @@ export class AuthenticationController
       res.status(200).json({
         status: "success",
         message: "User logged in successfully",
-        data: {
-          access_token: access_token,
-        },
       });
     } catch (error) {
       res.status(400).json({
