@@ -51,6 +51,7 @@ model Profile {
   integrations Integration[]
   communications Communication[]
   searches SearchHistory[]
+  chats Chat[]
 }
 
 enum IntegrationType {
@@ -154,13 +155,30 @@ model Embedding {
   created_at DateTime @default(now())
 }
 
+model Chat {
+  id String @id @default(cuid())
+
+  title String
+
+  profileID String
+  profile Profile @relation(fields: [profileID], references: [id])
+
+  searches SearchHistory[]
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
 model SearchHistory {
   id String @id @default(cuid())
 
   profileID String
   profile Profile @relation(fields: [profileID], references: [id])
 
+  chatID String?
+  chat Chat? @relation(fields: [chatID], references: [id])
+
   query String
+  response String
   results Json
 
   created_at DateTime @default(now())

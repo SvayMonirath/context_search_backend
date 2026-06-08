@@ -1,17 +1,29 @@
 import type z from "zod";
 import { Search_Request } from "./search.request.js";
 import SearchRepository from "./search.repository.js";
+import { SearchHistoryRepository } from "./searchHisory.repository.js";
 import EmbeddingService from "../embedding/embedding.service.js";
 
 class SearchService {
   constructor(
     private searchRepository: SearchRepository,
     private embeddings: EmbeddingService,
+    private searchHistoryRepository: SearchHistoryRepository,
   ) {}
+
+  save_search_history = async (
+    chatId: string,
+    profileId: string,
+    query: string,
+    results: any[],
+    response: string
+  ) => {
+    await this.searchHistoryRepository.save_search_history(chatId, profileId, query, results, response);
+  }
 
   queryVector = async (
     data: z.infer<typeof Search_Request>,
-    limit: number = 10,
+    limit: number = 8,
   ) => {
     try {
       const queryVector = await this.embeddings.query_embedding(data.query);
@@ -80,6 +92,8 @@ class SearchService {
           ${item.content}`,
         )
         .join("\n\n---\n\n");
+
+
 
       return {
         results: finalResults,
