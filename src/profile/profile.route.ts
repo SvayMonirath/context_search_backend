@@ -8,13 +8,15 @@ import IntegrationController from "../integration/integration.controller.js";
 import IntegrationService from "../integration/integration.service.js";
 import GoogleOAuthService from "../integration/google-oauth.service.js";
 import IntegrationRepository from "../integration/integration.repository.js";
+import PasswordService from "../authentication/password.service.js";
 
 const router: express.Router = express.Router();
 
 router.use(verify_access_token);
 
 const profileRepository = new ProfileRepository();
-const profileService = new ProfileService(profileRepository);
+const passwordService = new PasswordService();
+const profileService = new ProfileService(profileRepository, passwordService);
 const profileController = new ProfileController(profileService);
 
 const googleAuthService = new GoogleOAuthService();
@@ -23,8 +25,9 @@ const integrationService = new IntegrationService(googleAuthService, integration
 const integrationController = new IntegrationController(integrationService);
 
 router.post("/", profileController.create_profile);
+router.get("/", profileController.get_all_profiles);
 router.post("/:profile_id/integration/google/connect", integrationController.google_connect);
 router.get("/:profile_id/integration/google/get_gmail_integration", integrationController.get_gmail_integration);
-router.get("/:profile_id/integration/google/refresh_token", integrationController.refresh_google_token);
+router.patch("/:profile_id/integration/google/refresh_token", integrationController.refresh_google_token);
 
 export { router };

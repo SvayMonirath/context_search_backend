@@ -18,7 +18,7 @@ export class ChunkingService {
     return chunkText(content, MAX_CHUNK_SIZE, CHUNK_OVERLAP);
   };
 
-  processCommunication = async (communicationID: string) => {
+  processCommunicationChunks = async (communicationID: string) => {
     try {
       const communication =
         await this.communicationRepository.get_by_id(communicationID);

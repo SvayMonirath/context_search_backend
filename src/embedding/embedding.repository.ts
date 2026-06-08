@@ -1,7 +1,8 @@
+import type { VectorModel } from "@prisma/client";
 import prisma from "../prisma.client.js";
 
 export default class EmbeddingRepository {
-  async save_embedding(chunkID: string, embedding: number[], model: string) {
+  async save_embedding(chunkID: string, embedding: number[], model: VectorModel) {
     const id = `emb_${chunkID}`;
     const vectorLiteral = `[${embedding.join(",")}]`;
 

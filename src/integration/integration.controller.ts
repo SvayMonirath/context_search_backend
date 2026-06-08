@@ -3,6 +3,7 @@ import express from "express";
 
 import IntegrationService from "./integration.service.js";
 import { Get_Gmail_Integration_Request, type Store_Integration_Request } from "./integration.request.js";
+import { profile } from "node:console";
 
 class IntegrationController {
   constructor(private integrationService: IntegrationService) {
@@ -16,11 +17,12 @@ class IntegrationController {
 
       return res.status(200).json({
         status: "success",
-        message: "Google OAuth URL generated successfully",
+        message: "Google authentication URL generated successfully",
         data: {
           url,
         },
       });
+
     } catch (error: any) {
       res.status(500).json({
         status: "error",
@@ -46,20 +48,25 @@ class IntegrationController {
       const integration_data: z.infer<typeof Store_Integration_Request> = {
         profileID: profile_id,
         type: "GMAIL",
+        isActive: true,
         accessToken: token.access_token,
         refreshToken: token.refresh_token,
       };
 
       await this.integrationService.store_integration_data(integration_data);
 
-      return res.status(200).json({
-        status: "success",
-        message: "Google account connected successfully",
-        data: {
-          token,
-          ProfileID: profile_id,
-        },
-      });
+      // return res.status(200).json({
+      //   status: "success",
+      //   message: "Google account connected successfully",
+      //   data: {
+      //     token,
+      //     ProfileID: profile_id,
+      //   },
+      // });
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/dashboard/neural-links?profileId=${profile_id}`,
+      );
+
     } catch (error: any) {
       res.status(500).json({
         status: "error",
@@ -95,10 +102,46 @@ class IntegrationController {
     }
   }
 
+  get_integration_for_profile = async (req: express.Request, res: express.Response) => {
+    try {
+      const profile_id = req.query.profileId;
+
+      const data = await this.integrationService.get_integration_status(profile_id as string);
+
+      return res.status(200).json({
+        status: "success",
+        message: "Integration status retrieved successfully",
+        data,
+      });
+    } catch (error:any) {
+      res.status(500).json({
+        status: "error",
+        message: error.message,
+      });
+    }
+  }
+
+  disconnect_integration = async (req: express.Request, res: express.Response) => {
+    try {
+      const integration_id: any = req.query.integrationId;
+      const type = await this.integrationService.disconnect_integration(integration_id);
+
+      return res.status(200).json({
+        status: "success",
+        message: `${type} integration disconnected successfully`,
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        status: "error",
+        message: error.message,
+      });
+    }
+  }
+
   refresh_google_token = async(req: express.Request, res: express.Response) => {
     try {
       const profile_id: any  = req.params.profile_id;
-      const integration = await this.integrationService.get_gmail_integration(profile_id);
+      const integration = await this.integrationService.get_inactive_gmail_integration(profile_id);
 
       if (!integration) {
         return res.status(404).json({
@@ -108,13 +151,12 @@ class IntegrationController {
       }
 
       if(!integration.refreshToken){
-        return res.status(400).json({
+        return res.status(401).json({
           status: "error",
-          message: "No refresh token available for this integration",
+          message: "No refresh token available. User must reconnect Google account.",
         });
       }
 
-      // does this return a new refresh token or access token or both? usually only access token is refreshed, refresh token remains the same
       const refreshed_tokens = await this.integrationService.refresh_google_token(integration.refreshToken);
 
       if(!refreshed_tokens || !refreshed_tokens.access_token){
@@ -128,11 +170,13 @@ class IntegrationController {
       const updated_integration_data: z.infer<typeof Store_Integration_Request> = {
         profileID: profile_id,
         type: "GMAIL",
+        isActive: true,
         accessToken: refreshed_tokens.access_token,
-        refreshToken: integration.refreshToken, // Refresh token usually remains the same
+        refreshToken: integration.refreshToken,
       };
 
-      await this.integrationService.update_integration_token(profile_id, updated_integration_data);
+
+      await this.integrationService.update_integration_token(profile_id, integration, updated_integration_data);
 
       return res.status(200).json({
         status: "success",
@@ -142,6 +186,22 @@ class IntegrationController {
         },
       });
     } catch (error: any) {
+
+      if(error.message === "invalid_grant") {
+        const profile_id: any  = req.params.profile_id;
+        this.integrationService.get_gmail_integration(profile_id).then((integration) => {
+          if(integration) {
+            this.integrationService.delete_integration(integration.id, integration.type).then(() => {
+              console.log("Integration deleted due to invalid_grant error");
+            }).catch((deleteError) => {
+              console.error("Failed to delete integration after invalid_grant error:", deleteError);
+            });
+          }
+        }).catch((fetchError) => {
+          console.error("Failed to fetch integration after invalid_grant error:", fetchError);
+        });
+      }
+
       res.status(500).json({
         status: "error",
         message: error.message,
@@ -168,6 +228,32 @@ class IntegrationController {
       });
     }
   };
+
+  delete_integration = async (req: express.Request, res: express.Response) => {
+    try {
+      const profile_id: any = req.query.profileId;
+      const integration = await this.integrationService.get_gmail_integration(profile_id);
+
+      if (!integration) {
+        return res.status(404).json({
+          status: "error",
+          message: "Integration not found for the specified profile",
+        });
+      }
+
+      await this.integrationService.delete_integration(integration?.id as string, integration?.type as any);
+
+      return res.status(200).json({
+        status: "success",
+        message: "Integration deleted successfully",
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        status: "error",
+        message: error.message,
+      });
+    }
+  }
 }
 
 export default IntegrationController;

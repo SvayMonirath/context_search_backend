@@ -3,6 +3,7 @@ import { redisConnection } from "./redis.client.js";
 import prisma from "../prisma.client.js";
 import EmbeddingRepository from "../embedding/embedding.repository.js";
 import EmbeddingService from "../embedding/embedding.service.js";
+import type { VectorModel } from "@prisma/client";
 
 const embeddingRepository = new EmbeddingRepository();
 const embeddingService = new EmbeddingService(embeddingRepository);
@@ -23,8 +24,10 @@ export const embeddingWorker = new Worker(
 
         if (!chunk) continue;
 
+        const vector_model: VectorModel = "local_minilm"
+
         try {
-          await embeddingService.embed(chunkID, chunk.content ?? "");
+          await embeddingService.embed(chunkID, chunk.content ?? "", vector_model);
         } catch (err) {
           console.error("Failed to embed chunk", chunkID, err);
           throw err;

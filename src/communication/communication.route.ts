@@ -23,6 +23,7 @@ const communicationService = new CommunicationService(
   googleAuthService,
   communicationRepository,
   chunkingService,
+  integrationRepository,
 );
 const communicationController = new CommunicationController(
   communicationService,
@@ -31,5 +32,6 @@ const communicationController = new CommunicationController(
 router.use(verify_access_token);
 
 router.get("/get_emails/:profile_id", communicationController.get_emails);
+router.post("/gmail/sync/:profile_id", communicationController.sync_gmail);
 
 export { router };

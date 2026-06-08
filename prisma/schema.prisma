@@ -22,10 +22,27 @@ model User {
   profiles Profile[]
 }
 
+enum ProfileType {
+  STANDARD
+  PRIVATE
+}
+
+enum ProfileColors {
+  BLUE
+  CYAN
+  GREEN
+  ORANGE
+  RED
+  PURPLE
+}
+
 model Profile {
   id String @id @default(cuid())
   name String @unique
   user_id String
+  password String?
+  type ProfileType @default(STANDARD)
+  color ProfileColors @default(BLUE)
 
   created_at DateTime @default(now())
 
@@ -34,11 +51,19 @@ model Profile {
   integrations Integration[]
   communications Communication[]
   searches SearchHistory[]
+  chats Chat[]
 }
 
 enum IntegrationType {
   GMAIL
   TELEGRAM
+}
+
+enum SyncStatus {
+  IDLE
+  SYNCING
+  SUCCESS
+  FAILED
 }
 
 model Integration {
@@ -48,11 +73,17 @@ model Integration {
   profile Profile @relation(fields: [profileID], references: [id])
 
   communications Communication[]
+  isActive Boolean @default(true)
 
   type IntegrationType
 
   accessToken String?
   refreshToken String?
+
+  syncStatus SyncStatus @default(IDLE)
+  lastSyncedAt DateTime?
+
+  gmailHistoryId String?
 
   metadata Json?
 
@@ -124,13 +155,30 @@ model Embedding {
   created_at DateTime @default(now())
 }
 
+model Chat {
+  id String @id @default(cuid())
+
+  title String
+
+  profileID String
+  profile Profile @relation(fields: [profileID], references: [id])
+
+  searches SearchHistory[]
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+}
+
 model SearchHistory {
   id String @id @default(cuid())
 
   profileID String
   profile Profile @relation(fields: [profileID], references: [id])
 
+  chatID String?
+  chat Chat? @relation(fields: [chatID], references: [id])
+
   query String
+  response String
   results Json
 
   created_at DateTime @default(now())
