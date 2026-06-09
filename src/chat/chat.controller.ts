@@ -8,17 +8,19 @@ export class ChatController {
     try {
       const profileId = req.body.profileId;
 
-      await this.chatService.createChat(profileId as string);
+      const data = await this.chatService.createChat(profileId as string);
 
       res.status(201).json({
         status: "success",
-        message: "Chat created successfully"
+        message: "Chat created successfully",
+        data: data.id,
       });
     } catch (error) {
       console.error("Error creating chat:", error);
       res.status(500).json({
         status: "error",
-        message: "Failed to create chat"
+        message: "Failed to create chat",
+
       });
     }
   }

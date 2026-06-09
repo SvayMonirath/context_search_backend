@@ -2,19 +2,21 @@ import express from "express";
 
 import SearchService from "./search.service.js";
 import RAGService from "../RAG/rag.service.js";
+import { ChatService } from "../chat/chat.service.js";
 import { Search_Request } from "./search.request.js";
 
 class SearchController {
   constructor(
     private readonly searchService: SearchService,
     private readonly ragService: RAGService,
+    private readonly chatService: ChatService,
   ) {}
 
   streamSearch = async (req: express.Request, res: express.Response) => {
     try {
       const query = req.body.query;
       const profileId = req.query.profileId;
-      const chatId = req.query.chatId;
+      let chatId = req.query.chatId;
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
