@@ -17,4 +17,8 @@ export class ChatService {
   getChatsByProfileId = async (profileId: string) => {
     return await this.chatRepository.get_chats_by_profile_id(profileId);
   };
+
+  deleteChat = async (chatId: string) => {
+    return await this.chatRepository.delete_chat(chatId);
+  }
 }

@@ -23,6 +23,24 @@ export class ChatController {
     }
   }
 
+  deleteChat = async (req: express.Request, res: express.Response) => {
+    try {
+      const chatId = req.params.chatId;
+      await this.chatService.deleteChat(chatId as string);
+
+      res.status(200).json({
+        status: "success",
+        message: "Chat deleted successfully"
+      });
+    } catch (error) {
+      console.error("Error deleting chat:", error);
+      res.status(500).json({
+        status: "error",
+        message: "Failed to delete chat"
+      });
+    }
+  }
+
   getConversations = async (req: express.Request, res: express.Response) => {
     try {
       const chatId = req.query.chatId;

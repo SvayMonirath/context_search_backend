@@ -14,6 +14,7 @@ const chatController = new ChatController(chatService);
 router.use(verify_access_token);
 
 router.post("/", createChatLimiter, chatController.createChat);
+router.delete("/:chatId", chatController.deleteChat);
 router.get("/get_chats", chatController.getChats);
 router.get("/get_conversations", chatController.getConversations);
 

@@ -21,6 +21,23 @@ export class ChatRepository {
     })
   }
 
+  delete_chat = async (chatID: string) => {
+    // transaction
+    return await prisma.$transaction(async (prisma) => {
+      await prisma.searchHistory.deleteMany({
+        where: {
+          chatID,
+        }
+      });
+
+      return await prisma.chat.delete({
+        where: {
+          id: chatID,
+        }
+      })
+    })
+  }
+
   get_conversations_by_chat_id = async (chatID: string) => {
     return await prisma.searchHistory.findMany({
       where: {
