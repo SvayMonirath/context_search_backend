@@ -1,5 +1,6 @@
 import express from "express";
 import { verify_access_token } from "../authentication/authentication.middleware.js";
+import { searchLimiter } from "../middlewares/rateLimit.middleware.js";
 
 import SearchService from "./search.service.js";
 import EmbeddingService from "../embedding/embedding.service.js";
@@ -22,6 +23,6 @@ const searchController = new SearchController(searchService, ragService);
 router.use(verify_access_token);
 
 // router.post("/", searchController.search);
-router.post("/stream", searchController.streamSearch);
+router.post("/stream", searchLimiter, searchController.streamSearch);
 
 export { router as Search_Router };
