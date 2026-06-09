@@ -31,6 +31,22 @@ class ProfileController {
     }
   }
 
+  delete_profile = async (req: express.Request, res: express.Response) => {
+    try {
+      const profileId: string | string[] = req.params.profileId;
+      await this.profileService.delete_profile(profileId);
+      res.status(200).json({
+        status: "success",
+        message: "Profile deleted successfully",
+      });
+    } catch (error) {
+      res.status(400).json({
+        status: "error",
+        message: error instanceof Error ? error.message : "An error occurred while deleting the profile",
+      });
+    }
+  }
+
   get_all_profiles = async (req: express.Request, res: express.Response) => {
     try {
       const user_id = req.user.user_id;

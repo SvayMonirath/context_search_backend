@@ -40,6 +40,10 @@ class ProfileService {
     return profiles;
   }
 
+  delete_profile = async (profileId: string) => {
+    await this.profileRepository.delete_profile(profileId);
+  }
+
 }
 
 export default ProfileService;

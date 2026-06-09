@@ -26,6 +26,7 @@ const integrationController = new IntegrationController(integrationService);
 
 router.post("/", profileController.create_profile);
 router.get("/", profileController.get_all_profiles);
+router.delete("/:profileId", profileController.delete_profile);
 router.post("/:profile_id/integration/google/connect", integrationController.google_connect);
 router.get("/:profile_id/integration/google/get_gmail_integration", integrationController.get_gmail_integration);
 router.patch("/:profile_id/integration/google/refresh_token", integrationController.refresh_google_token);

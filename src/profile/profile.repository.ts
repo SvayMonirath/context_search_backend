@@ -34,6 +34,13 @@ class ProfileRepository {
     return new_profile;
   }
 
+  async delete_profile(profileId: string) {
+    await prisma.profile.delete({
+      where: {
+        id: profileId,
+      },
+    });
+  }
 }
 
 export default ProfileRepository;

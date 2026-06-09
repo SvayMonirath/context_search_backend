@@ -70,7 +70,7 @@ model Integration {
   id String @id @default(cuid())
 
   profileID String
-  profile Profile @relation(fields: [profileID], references: [id])
+  profile Profile @relation(fields: [profileID], references: [id], onDelete: Cascade)
 
   communications Communication[]
   isActive Boolean @default(true)
@@ -99,10 +99,10 @@ model Communication {
   id String @id @default(cuid())
 
   profileID String
-  profile Profile @relation(fields: [profileID], references: [id])
+  profile Profile @relation(fields: [profileID], references: [id], onDelete: Cascade)
 
   integrationID String
-  integration Integration @relation(fields: [integrationID], references: [id])
+  integration Integration @relation(fields: [integrationID], references: [id], onDelete: Cascade)
 
   type CommunicationType
 
@@ -125,7 +125,7 @@ model CommunicationChunk {
   id String @id @default(cuid())
 
   communicationID String
-  communication Communication @relation(fields: [communicationID], references: [id])
+  communication Communication @relation(fields: [communicationID], references: [id], onDelete: Cascade)
 
   chunkIndex Int
   content String
@@ -146,7 +146,7 @@ model Embedding {
   id String @id @default(cuid())
 
   chunkID String @unique
-  chunk CommunicationChunk @relation(fields: [chunkID], references: [id])
+  chunk CommunicationChunk @relation(fields: [chunkID], references: [id], onDelete: Cascade)
 
   vector Unsupported("vector(384)")
 
@@ -161,7 +161,7 @@ model Chat {
   title String
 
   profileID String
-  profile Profile @relation(fields: [profileID], references: [id])
+  profile Profile @relation(fields: [profileID], references: [id], onDelete: Cascade)
 
   searches SearchHistory[]
   created_at DateTime @default(now())
@@ -172,10 +172,10 @@ model SearchHistory {
   id String @id @default(cuid())
 
   profileID String
-  profile Profile @relation(fields: [profileID], references: [id])
+  profile Profile @relation(fields: [profileID], references: [id], onDelete: Cascade)
 
   chatID String?
-  chat Chat? @relation(fields: [chatID], references: [id])
+  chat Chat? @relation(fields: [chatID], references: [id], onDelete: Cascade)
 
   query String
   response String
