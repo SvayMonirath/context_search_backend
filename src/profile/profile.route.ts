@@ -31,4 +31,6 @@ router.post("/:profile_id/integration/google/connect", integrationController.goo
 router.get("/:profile_id/integration/google/get_gmail_integration", integrationController.get_gmail_integration);
 router.patch("/:profile_id/integration/google/refresh_token", integrationController.refresh_google_token);
 
+router.post("/:profile_id/integration/telegram/connect", integrationController.telegram_connect);
+router.post("/:profile_id/integration/telegram/verify", integrationController.telegram_verify);
 export { router };

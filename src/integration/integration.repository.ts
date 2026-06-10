@@ -45,6 +45,28 @@ class IntegrationRepository {
     })
   }
 
+  get_telegram_integration = async (profile_id: string ) => {
+    return await prisma.integration.findFirst({
+      where: {
+        profileID: profile_id,
+        type: "TELEGRAM",
+      }
+    })
+  }
+
+  store_telegram_integration = async (profile_id: string, phone: string) => {
+    return await prisma.integration.create({
+      data: {
+        profileID: profile_id,
+        type: IntegrationType.TELEGRAM,
+        metadata: {
+          phone: phone,
+          status: "INIT",
+        }
+      },
+    });
+  }
+
   get_active_gmail_integration = async (profile_id: string ) => {
     return await prisma.integration.findFirst({
       where: {
@@ -96,7 +118,9 @@ class IntegrationRepository {
         where: {
           id: integration_id,
         },
-        data: data,
+        data: {
+          metadata: data.metadata,
+        }
       });
     } catch (error) {
       throw new Error("Failed to update integration data");

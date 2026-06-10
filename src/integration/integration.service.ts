@@ -15,6 +15,15 @@ class IntegrationService {
     return this.googleOAuthservice.generateAuthUrl(profile_id);
   };
 
+  getOrCreateTelegramIntegration = async (profile_id: string, phone: string) => {
+    let integration = await this.integrationRepository.get_telegram_integration(profile_id);
+
+    if(!integration) {
+      integration = await this.integrationRepository.store_telegram_integration(profile_id, phone);
+    }
+    return integration;
+  }
+
   handle_google_callback = async (code: string) => {
     return await this.googleOAuthservice.getToken(code);
   };
@@ -99,6 +108,13 @@ class IntegrationService {
   ) => {
     return await this.integrationRepository.store_integration_data(data);
   };
+
+  update_integration = async (
+    integration_id: string,
+    data: any
+  ) => {
+    return await this.integrationRepository.update_integration(integration_id, data);
+  }
 
   update_integration_token = async (
     profile_id: string,
