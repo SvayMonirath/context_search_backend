@@ -42,6 +42,16 @@ export const communicationWorker = new Worker(
       console.log("(Communication Worker) Starting Gmail sync for profile ID:", profileID);
       await communicationService.sync_gmail(profileID);
     }
+
+    if(job.name === "sync-telegram") {
+      const { profileID } = job.data;
+
+      if (!profileID) {
+        throw new Error("Profile ID is required for Telegram sync");
+      }
+      console.log("(Communication Worker) Starting Telegram sync for profile ID:", profileID);
+      // await communicationService.sync_telegram(profileID);
+    }
   },
   {
     connection: redisConnection,

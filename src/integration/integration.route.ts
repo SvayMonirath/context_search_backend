@@ -20,8 +20,10 @@ router.get("/google/callback", integrationController.google_callback);
 router.use(verify_access_token);
 
 router.post("/google/create_client", integrationController.create_gmail_client);
+
 router.patch("/disconnect", integrationController.disconnect_integration);
 router.delete("", integrationController.delete_integration);
 router.get("/status", integrationController.get_integration_for_profile);
+
 
 export { router };

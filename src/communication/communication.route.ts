@@ -33,5 +33,6 @@ router.use(verify_access_token);
 
 router.get("/get_emails/:profile_id", communicationController.get_emails);
 router.post("/gmail/sync/:profile_id", communicationController.sync_gmail);
+router.post("/telegram/sync/:profile_id", communicationController.sync_telegram);
 
 export { router };

@@ -44,6 +44,22 @@ class CommunicationController {
     }
   };
 
+  sync_telegram = async (req: express.Request, res: express.Response) => {
+    try {
+      const profile_id: string | string[] | undefined = req.params.profile_id;
+
+      await communicationQueue.add("sync-telegram", {
+        profileID: profile_id,
+      });
+      
+    } catch (error) {
+      return res.status(500).json({
+        status: "error",
+        message: "Failed to initiate Telegram sync",
+      });
+    }
+  }
+
   sync_gmail = async (req: express.Request, res: express.Response) => {
     try {
       const profile_id: string | string[] | undefined = req.params.profile_id;

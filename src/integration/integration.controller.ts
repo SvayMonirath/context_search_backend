@@ -3,12 +3,101 @@ import express from "express";
 
 import IntegrationService from "./integration.service.js";
 import { Get_Gmail_Integration_Request, type Store_Integration_Request } from "./integration.request.js";
-import { profile } from "node:console";
+
 
 class IntegrationController {
   constructor(private integrationService: IntegrationService) {
     this.integrationService = integrationService;
   }
+
+  telegram_connect = async (req: express.Request, res: express.Response) => {
+    try {
+      const profile_id: string | string[] | undefined = req.params.profile_id;
+      const { phone } = req.body;
+
+      const integration = await this.integrationService.getOrCreateTelegramIntegration(profile_id as string, phone);
+
+      const response = await fetch(`http://localhost:${process.env.PYTHON_BACKEND_PORT}/telegram/connect`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          integration_id: integration.id,
+          phone,
+        }),
+      });
+
+      const data = await response.json();
+      await this.integrationService.update_integration(integration.id, {
+        metadata: {
+          phone: phone,
+          phone_code_hash: data.code_hash,
+          status: "PENDING_OTP",
+        }
+      });
+
+      return res.status(200).json({
+        status: "success",
+        message: "Telegram code sent successfully",
+        data: {
+          integration_id: integration.id,
+          status: "OTP_SENT",
+        }
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: "error",
+        message: error instanceof Error ? error.message : "An error occurred while connecting Telegram integration",
+      });
+    }
+  }
+
+  telegram_verify = async (req: express.Request, res: express.Response) => {
+    try {
+      const profile_id: string | string[] | undefined = req.params.profile_id;
+      const { integration_id, code } = req.body;
+
+      const integration = await this.integrationService.getOrCreateTelegramIntegration(profile_id as string, "");
+
+      const metadata: any = integration.metadata || {};
+
+      const response = await fetch(`http://localhost:${process.env.PYTHON_BACKEND_PORT}/telegram/verify-code`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          integration_id,
+          phone: metadata.phone,
+          phone_code_hash: metadata.phone_code_hash,
+          code,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.status === "connected") {
+        await this.integrationService.update_integration(integration_id, {
+          metadata: {
+            ...metadata,
+            status: "CONNECTED",
+          }
+        });
+
+        return res.status(200).json({
+          status: "success",
+          message: "Telegram integration verified successfully",
+        });
+      }
+    } catch (error) {
+      res.status(500).json({
+        status: "error",
+        message: "An error occurred while verifying Telegram code",
+      });
+    }
+  }
+
 
   google_connect = async (req: express.Request, res: express.Response) => {
     try {
