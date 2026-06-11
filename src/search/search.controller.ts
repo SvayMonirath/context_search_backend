@@ -9,7 +9,6 @@ class SearchController {
   constructor(
     private readonly searchService: SearchService,
     private readonly ragService: RAGService,
-    private readonly chatService: ChatService,
   ) {}
 
   streamSearch = async (req: express.Request, res: express.Response) => {

@@ -1,0 +1,20 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# enable pnpm via corepack
+RUN corepack enable
+
+# install dependencies first (cached layer)
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+# copy source code
+COPY . .
+RUN npx prisma generate
+
+# expose backend port
+EXPOSE 8000
+
+# run WITHOUT build (no tsc check)
+CMD ["pnpm", "run", "dev"]
