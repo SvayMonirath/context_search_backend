@@ -18,7 +18,7 @@ const embeddingRepository = new EmbeddingRepository();
 const embeddingService = new EmbeddingService(embeddingRepository);
 const searchService = new SearchService(searchRepository, embeddingService, searchHistoryRepository);
 const ragService = new RAGService();
-const searchController = new SearchController(searchService, ragService);
+const searchController = new SearchController(searchService, ragService, );
 
 router.use(verify_access_token);
 

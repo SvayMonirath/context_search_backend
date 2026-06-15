@@ -1,6 +1,53 @@
+import { CommunicationType, IntegrationType } from "@prisma/client";
 import prisma from "../prisma.client.js";
 
 class CommunicationRepository {
+
+  async save_telegram_message(
+    profileID: string,
+    integrationID: string,
+    msg: any,
+  ) {
+    try {
+      return prisma.communication.upsert({
+        where: {
+          integrationID_externalID: {
+            integrationID,
+            externalID: String(msg.message_id),
+          },
+        },
+        create: {
+          profileID,
+          integrationID,
+          type: CommunicationType.TELEGRAM_MESSAGE,
+          externalID: String(msg.message_id),
+          sender: String(msg.sender_name || "Unknown"),
+          content: msg.text,
+          sent_at: new Date(msg.date),
+          metadata: {
+            // Explicitly casting or falling back to primitive types
+            // ensures no hidden complex structures trip up Prisma
+            chatId: String(msg.chat_id),
+            chatTitle: String(msg.chat_title || ""),
+            senderId: msg.sender_id ? String(msg.sender_id) : null,
+          },
+        },
+        update: {},
+      });
+    } catch (error: any) {
+      throw new Error("Failed to save telegram message: " + error.message);
+    }
+  }
+
+  update_integration = async (integrationID: string, data: any) => {
+    return await prisma.integration.update({
+      where: {
+        id: integrationID,
+      },
+      data: data,
+    });
+  }
+
   save_email = async (profileID: string, integrationID: string, email: any) => {
     try {
       const externalID = email.id ?? null;
@@ -42,7 +89,7 @@ class CommunicationRepository {
           profileID,
           integrationID,
 
-          type: "EMAIL",
+          type: CommunicationType.EMAIL,
           externalID,
           sender: email.from ?? "Unknown sender",
           content: email.body ?? "",

@@ -26,13 +26,13 @@ const communicationService = new CommunicationService(
   integrationRepository,
 );
 const communicationController = new CommunicationController(
-  communicationService,
+  communicationService, integrationRepository, communicationRepository
 );
 
 router.use(verify_access_token);
 
-router.get("/get_emails/:profile_id", communicationController.get_emails);
-router.post("/gmail/sync/:profile_id", communicationController.sync_gmail);
-router.post("/telegram/sync/:profile_id", communicationController.sync_telegram);
+// router.get("/get_emails/:profile_id", communicationController.get_emails);
+router.get("/gmail/sync/:profile_id", communicationController.sync_gmail);
+router.get("/telegram/sync/:profile_id", communicationController.sync_telegram);
 
 export { router };

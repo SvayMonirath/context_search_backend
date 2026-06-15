@@ -3,6 +3,7 @@ import express from "express";
 
 import IntegrationService from "./integration.service.js";
 import { Get_Gmail_Integration_Request, type Store_Integration_Request } from "./integration.request.js";
+import { IntegrationType } from "@prisma/client";
 
 
 class IntegrationController {
@@ -56,9 +57,9 @@ class IntegrationController {
   telegram_verify = async (req: express.Request, res: express.Response) => {
     try {
       const profile_id: string | string[] | undefined = req.params.profile_id;
-      const { integration_id, code } = req.body;
+      const { code } = req.body;
 
-      const integration = await this.integrationService.getOrCreateTelegramIntegration(profile_id as string, "");
+      const integration = await this.integrationService.get_active_integration(profile_id as string, IntegrationType.TELEGRAM);
 
       const metadata: any = integration.metadata || {};
 
@@ -68,7 +69,7 @@ class IntegrationController {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          integration_id,
+          integration_id: integration.id,
           phone: metadata.phone,
           phone_code_hash: metadata.phone_code_hash,
           code,
@@ -78,7 +79,7 @@ class IntegrationController {
       const data = await response.json();
 
       if (data.status === "connected") {
-        await this.integrationService.update_integration(integration_id, {
+        await this.integrationService.update_integration(integration.id, {
           metadata: {
             ...metadata,
             status: "CONNECTED",

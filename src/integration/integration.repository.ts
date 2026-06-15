@@ -1,7 +1,7 @@
 import z from "zod";
 import prisma from "../prisma.client.js";
 import { Store_Integration_Request } from "./integration.request.js";
-import { IntegrationType, type Integration } from '@prisma/client';
+import { IntegrationType, Prisma, type Integration } from '@prisma/client';
 
 class IntegrationRepository {
   disconnect_integration = async (integration_id: string) => {
@@ -40,7 +40,7 @@ class IntegrationRepository {
     return await prisma.integration.findFirst({
       where: {
         profileID: profile_id,
-        type: "GMAIL",
+        type: IntegrationType.GMAIL,
       }
     })
   }
@@ -49,7 +49,7 @@ class IntegrationRepository {
     return await prisma.integration.findFirst({
       where: {
         profileID: profile_id,
-        type: "TELEGRAM",
+        type: IntegrationType.TELEGRAM,
       }
     })
   }
@@ -71,7 +71,7 @@ class IntegrationRepository {
     return await prisma.integration.findFirst({
       where: {
         profileID: profile_id,
-        type: "GMAIL",
+        type: IntegrationType.GMAIL,
         refreshToken: {
           not: null,
         },
@@ -87,7 +87,7 @@ class IntegrationRepository {
      return await prisma.integration.findFirst({
       where: {
         profileID: profile_id,
-        type: "GMAIL",
+        type: IntegrationType.GMAIL,
         isActive: false,
         refreshToken: {
           not: null,
@@ -112,15 +112,23 @@ class IntegrationRepository {
     });
   }
 
-  update_integration = async (integration_id: string, data: Integration) => {
+  get_active_integration = async (profile_id: string, type: IntegrationType) => {
+    return await prisma.integration.findFirst({
+      where: {
+        profileID: profile_id,
+        type: type,
+        isActive: true,
+      }
+    })
+  }
+
+  update_integration = async (integration_id: string, data: Prisma.IntegrationUpdateInput) => {
     try {
       return await prisma.integration.update({
         where: {
           id: integration_id,
         },
-        data: {
-          metadata: data.metadata,
-        }
+        data: data,
       });
     } catch (error) {
       throw new Error("Failed to update integration data");
@@ -147,6 +155,20 @@ class IntegrationRepository {
       throw new Error("Failed to update integration data");
     }
   };
+
+  get_active_telegram_integration = async (profile_id: string ) => {
+    try {
+      return await prisma.integration.findFirst({
+        where: {
+          profileID: profile_id,
+          type: IntegrationType.TELEGRAM,
+          isActive: true,
+        },
+      });
+    } catch (error: any) {
+      throw new Error(error.message);
+    }
+  }
 
   delete_integration = async (integration_id: string, type: IntegrationType) => {
     try {

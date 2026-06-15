@@ -49,6 +49,12 @@ class IntegrationService {
     return await this.integrationRepository.get_inactive_gmail_integration(profile_id);
   }
 
+  get_active_integration = async (profile_id: string, type: IntegrationType) => {
+    if (!profile_id) {
+      throw new Error("Profile ID is required");
+    }
+    return await this.integrationRepository.get_active_integration(profile_id, type);
+  }
 
   get_integration_status = async (profile_id: string) => {
     if(!profile_id) {

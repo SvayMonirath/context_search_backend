@@ -173,8 +173,9 @@ class CommunicationService {
       totalMessages += messages.length;
 
       await Promise.all(messages.map((msg) => {
-        if (!msg.id) return Promise.resolve();
+       if (!msg.id) return Promise.resolve();
 
+        console.time(`Scheduling message ${msg.id} for processing`);
         return limit(() => this.process_gmail_message(
           gmailClient,
           integration,
@@ -184,6 +185,7 @@ class CommunicationService {
             latestHistoryId = result.historyId;
           }
         }));
+
       }));
 
       pageToken = res.data.nextPageToken;

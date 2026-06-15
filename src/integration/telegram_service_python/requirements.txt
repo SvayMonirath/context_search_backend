@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+telethon
+aiohttp
+python-dotenv
+typing_extensions

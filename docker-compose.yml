@@ -3,17 +3,20 @@ services:
     image: pgvector/pgvector:pg17
     container_name: context-search-db
     restart: unless-stopped
-
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-
     ports:
       - "${POSTGRES_PORT}:5432"
-
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:7-alpine
     container_name: context-search-redis
@@ -22,6 +25,53 @@ services:
       - "${REDIS_PORT}:6379"
     volumes:
       - redisdata:/data
+
+  node-app:
+    build:
+      context: .   # Looks at root directory
+      dockerfile: Dockerfile.node
+    container_name: context-search-node
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT}:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@context-search-db:5432/${POSTGRES_DB}?schema=public
+      - CORS_ORIGIN=${CORS_ORIGIN}
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  fastapi-app:
+    build:
+      context: ./src/integration/telegram_service_python
+      dockerfile: Dockerfile.fastapi
+    container_name: context-search-fastapi
+    restart: unless-stopped
+    ports:
+      - "${PYTHON_BACKEND_PORT}:8001"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@context-search-db:5432/${POSTGRES_DB}
+      - REDIS_PORT=6379
+      - CORS_ORIGIN=${CORS_ORIGIN}
+    volumes:
+      - ./src/integration/telegram_service_python:/app
+      - telegram_sessions:/app/sessions
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
 volumes:
   pgdata:
   redisdata:
+  telegram_sessions:
