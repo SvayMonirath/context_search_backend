@@ -183,6 +183,12 @@ class IntegrationRepository {
             refreshToken: null,
           }
         });
+      } else if (type === IntegrationType.TELEGRAM) {
+        await prisma.integration.delete({
+          where: {
+            id: integration_id,
+          },
+        });
       }
     } catch (error: any) {
       throw new Error(error.message);

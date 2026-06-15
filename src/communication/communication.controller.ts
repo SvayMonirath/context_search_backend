@@ -29,7 +29,9 @@ class CommunicationController {
       });
       console.log("Updated integration status to SYNCING");
 
-      const response = await fetch("http://localhost:8001/telegram/sync-telegram", {
+      const fastapiHost = process.env.PYTHON_BACKEND_HOST || "localhost";
+      const fastapiPort = process.env.PYTHON_BACKEND_PORT || "8001";
+      const response = await fetch(`http://${fastapiHost}:${fastapiPort}/telegram/sync-telegram`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

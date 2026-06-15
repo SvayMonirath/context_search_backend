@@ -1,4 +1,4 @@
-import ollama from "ollama";
+import { Ollama } from "ollama";
 
 class RAGService {
   constructor() {}
@@ -59,6 +59,10 @@ class RAGService {
     ${query}
     ## FINAL ANSWER
     `;
+
+    const ollama = new Ollama({
+      host: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
+    });
 
     const stream = await ollama.chat({
       model: process.env.RAG_MODEL ?? "context-search-rag",

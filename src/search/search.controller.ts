@@ -67,7 +67,6 @@ class SearchController {
       );
 
       const ragTime = Date.now() - ragStart;
-      console.log("\nSources used:", result.results);
       console.log(`RAG response generation completed in ${ragTime} ms`);
       res.write(`data: ${JSON.stringify({
         type: "done",
