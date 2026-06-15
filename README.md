@@ -110,7 +110,6 @@ Required environment variables:
 ```env
 API_ID=
 API_HASH=
-PHONE=
 ```
 
 Notes:
