@@ -1,287 +1,275 @@
-# Context Search Backend
+# AI Memory Retrieval Assistant
 
-This backend powers the context search app. It handles:
+## Overview
 
-- user authentication
-- profile creation
-- Google Gmail connection
-- fetching and cleaning emails for profiles
+The AI Memory Retrieval Assistant is a local-first, open-source system designed to enable semantic search and retrieval across personal communication data. It integrates Gmail and Telegram messages into a unified knowledge base using embeddings, hybrid search, and Retrieval-Augmented Generation (RAG).
 
-## 1. Clone the project
+The system allows users to query their communication history using natural language instead of keyword-based search.
 
-```bash
-git clone <your-repo-url>
-cd context_search
+---
+
+## Key Features
+
+* Gmail integration via OAuth 2.0
+* Telegram integration using Telethon
+* Incremental synchronization for efficient data updates
+* Semantic search using vector embeddings
+* Hybrid search combining full-text and vector similarity
+* Retrieval-Augmented Generation (RAG) for contextual answers
+* PostgreSQL with pgvector for vector storage
+* Redis-based queue processing system
+* Fully containerized deployment using Docker
+
+---
+
+## System Architecture
+
+```text
+Frontend (React)
+        ↓
+Backend API (ExpressJS + TypeScript)
+        ↓
+Processing Layer
+    - Gmail Sync Service
+    - Telegram Sync Service (Python / Telethon)
+    - Chunking Service
+    - Embedding Service
+        ↓
+Infrastructure Layer
+    - PostgreSQL + pgvector
+    - Redis Queue
+        ↓
+AI Layer
+    - Ollama (LLM + Embeddings)
+    - RAG Pipeline
 ```
 
-## 2. Create the `.env` file
+---
 
-Create a file named `.env` in the project root.
+## Prerequisites
 
-Use these keys exactly:
+Before running the system, ensure the following are installed:
 
-````env
-# Application
-BACKEND_PORT=8000
-NODE_ENV=development
+### Docker and Docker Compose
 
+[https://www.docker.com/](https://www.docker.com/)
 
-### What each env value means
+### Ollama
 
-- `BACKEND_PORT`: port for the Express server.
-- `POSTGRES_USER`: database username used by Docker and the local connection string.
-- `POSTGRES_PASSWORD`: database password.
-- `POSTGRES_DB`: name of the database.
-- `POSTGRES_PORT`: port exposed on your machine.
-- `DATABASE_URL`: Prisma connection string used by the backend.
-- `JWT_ACCESS_TOKEN_SECRET_KEY`: secret used to sign the login cookie token.
-- `JWT_ACCESS_TOKEN_EXPIRES_IN`: token lifetime.
-- `ACCESS_TOKEN_COOKIE_EXPIRES_IN`: cookie lifetime in milliseconds.
-- `JWT_REFRESH_TOKEN_SECRET_KEY`: refresh-token secret.
-- `HASH_SALT_ROUNDS`: bcrypt cost factor for password hashing.
-- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: OAuth credentials from Google Cloud.
-- `GOOGLE_REDIRECT_URI`: the callback URL Google should redirect back to.
+Install Ollama:
 
-## 3. Start the database
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
 
-You need a running PostgreSQL database before Prisma can connect.
+Pull required models:
 
-1. Make sure Docker Desktop is open.
-2. Put these values in your `.env` file:
+```bash
+ollama pull qwen2.5:3b
+ollama pull nomic-embed-text
+```
+
+Start Ollama:
+
+```bash
+ollama serve
+```
+
+---
+
+## API Credentials Setup
+
+### Gmail API Setup
+
+1. Go to Google Cloud Console
+2. Create a new project
+3. Enable Gmail API
+4. Configure OAuth consent screen
+5. Create OAuth 2.0 credentials
+6. Download client credentials
+
+Required environment variables:
 
 ```env
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=password
-POSTGRES_DB=context_search_db
-POSTGRES_PORT=5432
-DATABASE_URL="postgresql://postgres:password@localhost:5432/context_search_db?schema=public"
-````
+GMAIL_CLIENT_ID=
+GMAIL_CLIENT_SECRET=
+GMAIL_REDIRECT_URI=http://localhost:3000/auth/google/callback
+```
 
-3. Start only the database container:
+---
+
+### Telegram API Setup
+
+1. Go to [https://my.telegram.org](https://my.telegram.org)
+2. Log in with your phone number
+3. Create a new application under API development tools
+4. Retrieve API credentials
+
+Required environment variables:
+
+```env
+API_ID=
+API_HASH=
+```
+
+Notes:
+
+* The phone number must include country code (e.g., +855...)
+* Telegram will send a login OTP during first authentication
+
+---
+
+## Installation and Setup
+
+### 1. Clone Repository
 
 ```bash
-docker compose up -d db
+git clone https://github.com/your-repository/context-search.git
+cd context-search
 ```
 
-4. Check that it is running:
+---
+
+### 2. Configure Environment Variables
+
+Create a `.env` file in the root directory:
+
+```env
+DATABASE_URL=postgresql://postgres:postgres@db:5432/context_search
+REDIS_URL=redis://redis:6379
+
+OLLAMA_URL=http://host.docker.internal:11434
+
+JWT_SECRET=your_secret_key
+
+GMAIL_CLIENT_ID=
+GMAIL_CLIENT_SECRET=
+GMAIL_REDIRECT_URI=http://localhost:3000/auth/google/callback
+
+API_ID=
+API_HASH=
+PHONE=
+```
+
+---
+
+### 3. Start the System
 
 ```bash
-docker compose ps
+docker compose up --build
 ```
 
-5. If you want to see the logs:
+This will start:
+
+* Backend API (ExpressJS)
+* PostgreSQL with pgvector
+* Redis queue system
+* Python Telegram sync service
+* Worker processes
+
+---
+
+## First-Time Usage
+
+### Gmail Integration
+
+1. Open the application
+2. Authenticate using Google OAuth
+3. Grant access permissions
+4. Email data will be synchronized automatically
+
+---
+
+### Telegram Integration
+
+1. Enter phone number with country code
+2. Receive OTP in Telegram app
+3. Enter OTP in the system
+4. Session is created and stored locally
+5. Message synchronization begins automatically
+
+---
+
+## Data Synchronization
+
+### Incremental Sync
+
+The system supports incremental synchronization for both Gmail and Telegram:
+
+* Gmail uses `historyId` tracking
+* Telegram uses message ID checkpoints
+* Only new messages are fetched on subsequent syncs
+* Data is processed asynchronously through a queue system
+
+---
+
+## Search Pipeline
+
+1. User submits natural language query
+2. Query is converted into embeddings
+3. Hybrid retrieval is performed:
+
+   * Full-text search (PostgreSQL)
+   * Vector similarity search (pgvector)
+4. Top results are passed into the RAG model
+5. Final response is generated using contextual data
+
+---
+
+## AI Models
+
+The system uses Ollama for local model execution.
+
+Recommended models:
+
+* `qwen2.5:3b` (main reasoning model)
+* `nomic-embed-text` (embedding model)
+
+---
+
+## Development
+
+### Run backend only
 
 ```bash
-docker compose logs -f db
+npm run dev
 ```
 
-## 4. Install dependencies
+### Run Telegram sync service manually
 
 ```bash
-pnpm install
+cd integration/telegram_service
+python main.py
 ```
 
-## 5. Prepare Prisma
+---
 
-Run Prisma generate and apply the migrations.
+## Security and Privacy
 
-```bash
-pnpm exec prisma generate
-pnpm exec prisma migrate dev
-```
+* All data is processed locally by default
+* OAuth credentials are required for external integrations
+* Users control access to their connected accounts
+* Data can be disconnected or removed at any time
+* No data is shared externally unless explicitly configured
 
-If Prisma asks for a migration name, provide one that matches the schema change.
+---
 
-If the database is not running yet, stop here and fix the database first. Prisma cannot migrate without a live database connection.
+## Tech Stack
 
-## 6. Run the backend
+* Backend: Node.js, ExpressJS, TypeScript
+* Sync Service: Python (Telethon)
+* Database: PostgreSQL + pgvector
+* Cache/Queue: Redis, BullMQ
+* AI Runtime: Ollama
+* Frontend: React
 
-Start the development server:
+---
 
-```bash
-pnpm dev
-```
+## Project Scope
 
-The app will run on the port from `.env`, which is `8000` by default.
+This project is designed for educational and research purposes, demonstrating:
 
-## 7. Verify the backend is working
-
-Open or call these endpoints after the server starts:
-
-- `POST /api/authentication/register`
-- `POST /api/authentication/login`
-- `POST /api/profile`
-- `POST /api/profile/:profile_id/integration/google/connect`
-- `GET /api/integration/google/callback?code=...&state=...`
-- `GET /api/communication/get_emails/:profile_id`
-
-Base URL:
-
-```bash
-http://localhost:8000
-```
-
-## 8. Recommended user flow
-
-This is the exact flow a teammate should follow after the backend is running:
-
-1. Register a user.
-2. Log in.
-3. Create a profile.
-4. Use the returned `profile_id` to start the Google connect flow.
-5. Approve Google access.
-6. Let Google redirect to the callback endpoint.
-7. Fetch emails for that profile.
-
-## Route summary
-
-## How email cleanup and storage work
-
-When the backend fetches Gmail messages, it does two things:
-
-1. It cleans the email body so the stored content is usable for search and AI.
-2. It persists the email in an idempotent way (see Duplicate-safe storage below) and enqueues async chunking for embeddings/search.
-
-### Email cleanup
-
-The email body goes through a cleanup pipeline before saving:
-
-- decode the Gmail message body
-- convert HTML to plain text
-- remove style, script, footer, navigation, and marketing boilerplate
-- remove invisible characters and broken formatting
-- normalize spacing and newlines
-- build the snippet from the cleaned body, not from the raw Gmail preview
-
-Implementation notes:
-
-- The sanitizer lives in `src/communication/communication-email-sanitizer.ts` and uses `html-to-text` to produce deterministic plain text.
-- It strips CSS/script artifacts, removes common footer/CTA boilerplate patterns, trims invisible unicode, and normalizes whitespace and newlines.
-- The stored `snippet` is extracted from the cleaned body so previews and embeddings are based on the cleaned content.
-
-### Duplicate-safe storage and updates
-
-Communications are unique on the pair `integrationID + externalID` in the database (see `prisma/schema.prisma`).
-
-- Previously the backend skipped creating a new row when a duplicate was found. It now refreshes the existing Communication: when the same message is fetched again we update the stored `sender`, `content`, `snippet`, `sent_at`, and `metadata` fields so improvements in the sanitizer are persisted.
-- After the save/update, the service enqueues a chunking job so chunks/embeddings are rebuilt from the updated cleaned content.
-
-Files to inspect:
-
-- `src/communication/communication.repository.ts` — `save_email` now updates existing rows instead of silently skipping.
-- `src/communication/communication.service.ts` — enqueues `chunk-communication` jobs after save.
-- `src/message_broker/communication.worker.ts` and `src/chunking/chunking.service.ts` — worker and chunking flow that replace chunks atomically.
-
-## Where the profile ID comes from on the frontend
-
-- `POST /api/authentication/register`
-- `POST /api/authentication/login`
-- `POST /api/authentication/logout`
-- `GET /api/authentication/me`
-
-### Profile
-
-- `POST /api/profile`
-
-### Google integration
-
-- `POST /api/profile/:profile_id/integration/google/connect`
-- `GET /api/integration/google/callback?code=...&state=...`
-- `POST /api/integration/google/create_client`
-
-### Communication
-
-- `GET /api/communication/get_emails/:profile_id`
-
-## Important notes
-
-- The Google callback route must stay public because Google calls it directly.
-- The email fetch route is protected and requires the login cookie.
-- The `profile_id` is created when the profile is created and then reused for Gmail connect and email fetching.
-- The Gmail integration must exist before emails can be fetched.
-- BullMQ is used for background processing and requires Redis. The worker is started by a side-effect import in `src/server.ts`.
-
-## If something fails
-
-- If login fails, check the JWT secrets and cookie settings.
-- If Prisma fails, check `DATABASE_URL` and make sure Postgres is running.
-- If Google connect fails, check the OAuth credentials and redirect URI.
-- If email fetch returns unauthorized, make sure the user is logged in and the `access_token` cookie is present.
-- If background chunking jobs do not run, check Redis is reachable and the worker process is started (the code imports the worker in `src/server.ts`).
-
-## Running Redis for local development
-
-BullMQ requires Redis. For local development add a `redis` service to `docker-compose.yml` or run Redis locally. Minimal example to add under `services`:
-
-```yaml
-redis:
-	image: redis:7
-	command: ["redis-server", "--appendonly", "yes"]
-	ports:
-		- "6379:6379"
-	volumes:
-		- redis-data:/data
-
-volumes:
-	redis-data:
-```
-
-Set these env vars in your `.env` for local development:
-
-```
-REDIS_HOST=redis
-REDIS_PORT=6379
-```
-
-Start Redis with:
-
-```bash
-docker compose up -d redis
-```
-
-For production use a managed Redis and enable auth/tls as needed.
-
-## Reprocessing existing Communications
-
-Existing rows in the database are not automatically reprocessed. To apply the improved sanitizer and rebuild chunks for already-stored Communications you can either:
-
-- Re-fetch messages for each profile (the `save_email` update will refresh rows and enqueue chunking), or
-- Run a one-off reprocess script that iterates Communications and calls `chunkingService.processCommunication(communicationID)` for each row. (This can be added as a small Node script under `scripts/`.)
-
-## Persistent chunk storage
-
-Chunks are stored persistently in the primary database so they are the canonical source for later retrieval and reassembly.
-
-- Storage model: each chunk row references the parent `Communication` (via `communicationID`) and includes a `chunkIndex` to keep order, the chunk `text` (or `content`), and optional metadata (created/updated timestamps, length).
-- Atomic replace: when the chunking worker rebuilds chunks we replace the previous set atomically (see `communication.repository.replace_chunks` which uses a transaction + `createMany` with `skipDuplicates`). This avoids partial state where only some chunks are updated.
-- Why keep chunks in Postgres: it makes reprocessing, debugging, and migration easier (you have a durable record), while the vector DB (if used) stores vectors for fast similarity search. Use Postgres as the canonical text source and sync vectors into your chosen vector DB.
-- Reassembly: because each chunk stores `communicationID` + `chunkIndex`, you can fetch and concatenate ordered chunks to reconstruct a larger context or to include neighbor chunks when answering queries.
-
-Practical notes:
-
-- If you change the chunking parameters (`maxSize`, `overlap`) you should reprocess stored Communications so chunks reflect the new policy.
-- Keep chunk text and chunk metadata small to control database size; store vectors in a vector DB for efficient nearest-neighbor retrieval.
-- The chunking worker replaces chunks after `save_email` updates the cleaned content, so stored chunks always reflect the latest cleaned text after normal fetch/update flows.
-
-Files to inspect for chunk storage and replacement:
-
-- `prisma/schema.prisma` — `CommunicationChunk` model (fields and indexes).
-- `src/communication/communication.repository.ts` — `replace_chunks` implementation.
-- `src/message_broker/communication.worker.ts` — worker that triggers chunking jobs.
-
-## Command summary
-
-- The Google callback route must stay public, because Google redirects there without your app cookie.
-- The Gmail fetch route is protected and expects the user to already be authenticated.
-- Email fetching only works after the profile has connected Gmail successfully.
-- Fetched emails are cleaned before storage; duplicates refresh stored content and trigger re-chunking.
-
-Quick start (db + redis + dev server):
-
-```bash
-docker compose up -d db redis
-pnpm install
-pnpm exec prisma generate
-pnpm exec prisma migrate dev
-pnpm dev
-```
+* AI-based communication processing
+* Vector database usage
+* RAG pipeline architecture
+* Hybrid search systems

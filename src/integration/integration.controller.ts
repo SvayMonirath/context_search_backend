@@ -18,7 +18,7 @@ class IntegrationController {
 
       const integration = await this.integrationService.getOrCreateTelegramIntegration(profile_id as string, phone);
 
-      const response = await fetch(`http://localhost:${process.env.PYTHON_BACKEND_PORT}/telegram/connect`, {
+      const response = await fetch(`http://${process.env.PYTHON_BACKEND_HOST}:${process.env.PYTHON_BACKEND_PORT}/telegram/connect`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -28,6 +28,15 @@ class IntegrationController {
           phone,
         }),
       });
+
+      if(!response.ok) {
+        await this.integrationService.delete_integration(integration.id, IntegrationType.TELEGRAM);
+
+        return res.status(500).json({
+          status: "error",
+          message: "Failed to initiate Telegram connection. Please try again.",
+        });
+      }
 
       const data = await response.json();
       await this.integrationService.update_integration(integration.id, {
@@ -63,7 +72,7 @@ class IntegrationController {
 
       const metadata: any = integration.metadata || {};
 
-      const response = await fetch(`http://localhost:${process.env.PYTHON_BACKEND_PORT}/telegram/verify-code`, {
+      const response = await fetch(`http://${process.env.PYTHON_BACKEND_HOST}:${process.env.PYTHON_BACKEND_PORT}/telegram/verify-code`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
