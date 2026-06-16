@@ -23,7 +23,7 @@ class SearchService {
 
   queryVector = async (
     data: z.infer<typeof Search_Request>,
-    limit: number = 8,
+    limit: number = (process.env.QUERY_LIMIT ? parseInt(process.env.QUERY_LIMIT) : 10),
   ) => {
     try {
       const queryVector = await this.embeddings.query_embedding(data.query);
@@ -46,6 +46,7 @@ class SearchService {
             candidate.content,
             candidate.sender,
             candidate.subject,
+            candidate.chat_title,
             candidate.type,
             candidate.category,
           ]
@@ -81,19 +82,20 @@ class SearchService {
       const finalResults = reranked.slice(0, limit);
 
       const context = finalResults
-        .map(
-          (item) => `Sender: ${item.sender ?? "Unknown"}
-          Type: ${item.type ?? "Unknown"}
-          Subject: ${item.subject ?? "No Subject"}
-          Date: ${item.sent_at ?? "Unknown"}
-          Category: ${item.category ?? "Unknown"}
+        .map((item) => {
+          const isTelegram = item.type === "telegram";
 
-          Content:
-          ${item.content}`,
-        )
+          return `Sender: ${item.sender ?? "Unknown"}
+  ${isTelegram ? `Chat: ${item.chat_title ?? "Unknown Chat"}` : ""}
+  Type: ${item.type ?? "Unknown"}
+  Subject: ${item.subject ?? "No Subject"}
+  Date: ${item.sent_at ?? "Unknown"}
+  Category: ${item.category ?? "Unknown"}
+
+  Content:
+  ${item.content}`;
+        })
         .join("\n\n---\n\n");
-
-
 
       return {
         results: finalResults,

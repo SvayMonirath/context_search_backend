@@ -147,7 +147,7 @@ class CommunicationService {
 
   initial_gmail_sync = async (integration: any) => {
 
-    const MAX_INITIAL_SYNC_MESSAGES = parseInt(process.env.GMAIL_INITIAL_SYNC_LIMIT || "1000"); // Safety cap to prevent syncing too many emails at once
+    const MAX_INITIAL_SYNC_MESSAGES = parseInt(process.env.EMAIL_INITIAL_SYNC_LIMIT || "1000"); // Safety cap to prevent syncing too many emails at once
     const limit = pLimit(5); // Limit concurrency to 5
 
     const gmailClient = await this.googleOAuthService.create_gmail_client({

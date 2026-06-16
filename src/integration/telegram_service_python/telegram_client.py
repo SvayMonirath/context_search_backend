@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 clients = {}
 
-API_ID = os.getenv("TELEGRAM_API_ID")
+API_ID = int(os.getenv("TELEGRAM_API_ID"))
 API_HASH = os.getenv("TELEGRAM_API_HASH")
 
 def get_telegram_client(integration_id: str) :

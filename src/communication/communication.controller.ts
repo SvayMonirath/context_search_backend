@@ -17,7 +17,8 @@ class CommunicationController {
       if(!req.params.profile_id) {
         throw new Error("Profile ID is required");
       }
-      const profile_id: string | string[] = req.params.profile_id;
+      const profile_id = req.params.profile_id;
+
       const integration = await this.integrationRepository.get_active_telegram_integration(profile_id);
 
       if (!integration) {
@@ -27,23 +28,23 @@ class CommunicationController {
       await this.integrationRepository.update_integration(integration.id, {
         syncStatus: SyncStatus.SYNCING,
       });
-      console.log("Updated integration status to SYNCING");
 
-      const fastapiHost = process.env.PYTHON_BACKEND_HOST || "localhost";
-      const fastapiPort = process.env.PYTHON_BACKEND_PORT || "8001";
-      const response = await fetch(`http://${fastapiHost}:${fastapiPort}/telegram/sync-telegram`, {
+      const response = await fetch(`http://${process.env.PYTHON_BACKEND_HOST || "localhost"}:${process.env.PYTHON_BACKEND_PORT || "8001"}/telegram/sync-telegram`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           integration_id: integration.id,
           last_sync: integration.metadata || {},
+          chat_limit: process.env.TELEGRAM_SYNC_CHAT_LIMIT ? parseInt(process.env.TELEGRAM_SYNC_CHAT_LIMIT) : 10, 
         }),
       });
 
       console.log("Sent request to sync with Telegram");
-
       if (!response.ok) {
-        throw new Error(`Failed to sync with Telegram. Status: ${response.status}`);
+        await this.communicationRepository.update_integration(integration.id, {
+          syncStatus: SyncStatus.IDLE,
+        });
+        throw new Error(`Telegram sync failed with status ${response.status}`);
       }
 
       const data = await response.json();
@@ -55,8 +56,7 @@ class CommunicationController {
       await Promise.all(
         data.messages.map((msg: any) =>
           limit(async () => {
-            // Fixed structural key typo from msg.messageId -> msg.message_id
-            console.time(`Saving message ${msg.sender_name} - ${msg.message_id}`);
+            const start = Date.now();
 
             const communication = await this.communicationRepository.save_telegram_message(
               integration.profileID,
@@ -68,7 +68,7 @@ class CommunicationController {
               communicationID: communication.id,
             });
 
-            console.timeEnd(`Saving message ${msg.sender_name} - ${msg.message_id}`);
+            console.log(`Processed message ${msg.message_id} in ${Date.now() - start}ms`);
           })
         )
       );

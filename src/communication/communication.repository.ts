@@ -25,11 +25,9 @@ class CommunicationRepository {
           content: msg.text,
           sent_at: new Date(msg.date),
           metadata: {
-            // Explicitly casting or falling back to primitive types
-            // ensures no hidden complex structures trip up Prisma
-            chatId: String(msg.chat_id),
-            chatTitle: String(msg.chat_title || ""),
-            senderId: msg.sender_id ? String(msg.sender_id) : null,
+            chat_id: String(msg.chat_id),
+            chat_title: String(msg.chat_title || "Untitled Chat"),
+            sender_id: msg.sender_id ? String(msg.sender_id) : null,
           },
         },
         update: {},

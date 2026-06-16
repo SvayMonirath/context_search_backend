@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AI Memory Retrieval Assistant is a local-first, open-source system designed to enable semantic search and retrieval across personal communication data. It integrates Gmail and Telegram messages into a unified knowledge base using embeddings, hybrid search, and Retrieval-Augmented Generation (RAG).
+The AI Memory Retrieval Assistant is a local-first, open-source system that enables semantic search and retrieval across personal communication data. It integrates Gmail and Telegram messages into a unified knowledge base using embeddings, hybrid search, and Retrieval-Augmented Generation (RAG).
 
 The system allows users to query their communication history using natural language instead of keyword-based search.
 
@@ -12,19 +12,19 @@ The system allows users to query their communication history using natural langu
 
 * Gmail integration via OAuth 2.0
 * Telegram integration using Telethon
-* Incremental synchronization for efficient data updates
+* Incremental synchronization for efficient updates
 * Semantic search using vector embeddings
-* Hybrid search combining full-text and vector similarity
-* Retrieval-Augmented Generation (RAG) for contextual answers
-* PostgreSQL with pgvector for vector storage
-* Redis-based queue processing system
-* Fully containerized deployment using Docker
+* Hybrid search (full-text + vector similarity)
+* Retrieval-Augmented Generation (RAG)
+* PostgreSQL + pgvector vector database
+* Redis-based queue processing
+* Fully containerized with Docker
 
 ---
 
 ## System Architecture
 
-```text
+```
 Frontend (React)
         ↓
 Backend API (ExpressJS + TypeScript)
@@ -48,28 +48,28 @@ AI Layer
 
 ## Prerequisites
 
-Before running the system, ensure the following are installed:
+### Required Software
 
-### Docker and Docker Compose
+* Docker & Docker Compose
+  [https://www.docker.com/](https://www.docker.com/)
 
-[https://www.docker.com/](https://www.docker.com/)
+* Ollama
+  [https://ollama.com/](https://ollama.com/)
 
-### Ollama
-
-Install Ollama:
+Install:
 
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
 ```
 
-Pull required models:
+Models:
 
 ```bash
 ollama pull qwen2.5:3b
 ollama pull nomic-embed-text
 ```
 
-Start Ollama:
+Start:
 
 ```bash
 ollama serve
@@ -79,47 +79,98 @@ ollama serve
 
 ## API Credentials Setup
 
-### Gmail API Setup
+This project requires credentials for external integrations.
 
-1. Go to Google Cloud Console
-2. Create a new project
-3. Enable Gmail API
-4. Configure OAuth consent screen
-5. Create OAuth 2.0 credentials
-6. Download client credentials
+---
 
-Required environment variables:
+# Gmail Setup (OAuth 2.0)
+
+## 1. Create Google Cloud Project
+
+[https://console.cloud.google.com/](https://console.cloud.google.com/)
+
+## 2. Enable Gmail API
+
+* Go to: APIs & Services → Library
+* Enable **Gmail API**
+
+## 3. Configure OAuth Consent Screen
+
+* User Type: External (for testing)
+* Add test users (IMPORTANT)
+
+## 4. Create OAuth Credentials
+
+* Go to: APIs & Services → Credentials
+* Create OAuth Client ID
+* Application type: Web Application
+
+## 5. Add Redirect URI
+
+```
+http://localhost:8000/api/integration/google/callback
+```
+
+## Required Environment Variables
 
 ```env
-GMAIL_CLIENT_ID=
-GMAIL_CLIENT_SECRET=
-GMAIL_REDIRECT_URI=http://localhost:3000/auth/google/callback
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=http://localhost:8000/api/integration/google/callback
 ```
 
 ---
 
-### Telegram API Setup
+# ⚠️ Adding Gmail Test Users
 
-1. Go to [https://my.telegram.org](https://my.telegram.org)
-2. Log in with your phone number
-3. Create a new application under API development tools
-4. Retrieve API credentials
+If your app is in “Testing mode”:
 
-Required environment variables:
+Go to:
 
-```env
-API_ID=
-API_HASH=
-```
+**Google Cloud Console → OAuth consent screen → Test Users**
 
-Notes:
-
-* The phone number must include country code (e.g., +855...)
-* Telegram will send a login OTP during first authentication
+Add emails manually or OAuth will FAIL for other accounts.
 
 ---
 
-## Installation and Setup
+# Telegram API Setup
+
+## 1. Create Telegram App
+
+[https://my.telegram.org](https://my.telegram.org)
+
+## 2. Login with your phone number
+
+## 3. Go to:
+
+**API Development Tools**
+
+## 4. Create a new application
+
+You will receive:
+
+* API_ID
+* API_HASH
+
+## Required Environment Variables
+
+```env
+TELEGRAM_API_ID=
+TELEGRAM_API_HASH=
+PHONE=
+```
+
+---
+
+## Telegram Notes
+
+* Phone number must include country code (e.g. +855…)
+* First login requires OTP sent via Telegram app
+* Session is stored locally after authentication
+
+---
+
+## Installation & Setup
 
 ### 1. Clone Repository
 
@@ -130,9 +181,9 @@ cd context-search
 
 ---
 
-### 2. Configure Environment Variables
+### 2. Configure Environment
 
-Create a `.env` file in the root directory:
+Create `.env`:
 
 ```env
 DATABASE_URL=postgresql://postgres:postgres@db:5432/context_search
@@ -142,88 +193,82 @@ OLLAMA_URL=http://host.docker.internal:11434
 
 JWT_SECRET=your_secret_key
 
-GMAIL_CLIENT_ID=
-GMAIL_CLIENT_SECRET=
-GMAIL_REDIRECT_URI=http://localhost:3000/auth/google/callback
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=http://localhost:8000/api/integration/google/callback
 
-API_ID=
-API_HASH=
+TELEGRAM_API_ID=
+TELEGRAM_API_HASH=
 PHONE=
 ```
 
 ---
 
-### 3. Start the System
+### 3. Start System
 
 ```bash
 docker compose up --build
 ```
 
-This will start:
+This starts:
 
 * Backend API (ExpressJS)
-* PostgreSQL with pgvector
-* Redis queue system
-* Python Telegram sync service
-* Worker processes
+* PostgreSQL + pgvector
+* Redis queue
+* Telegram sync worker (Python)
+* Background processors
 
 ---
 
 ## First-Time Usage
 
-### Gmail Integration
+### Gmail
 
-1. Open the application
-2. Authenticate using Google OAuth
-3. Grant access permissions
-4. Email data will be synchronized automatically
+1. Login with Google OAuth
+2. Grant permissions
+3. Emails sync automatically
 
 ---
 
-### Telegram Integration
+### Telegram
 
-1. Enter phone number with country code
+1. Enter phone number
 2. Receive OTP in Telegram app
-3. Enter OTP in the system
-4. Session is created and stored locally
-5. Message synchronization begins automatically
+3. Authenticate session
+4. Messages sync automatically
 
 ---
 
 ## Data Synchronization
 
-### Incremental Sync
+### Incremental Sync System
 
-The system supports incremental synchronization for both Gmail and Telegram:
-
-* Gmail uses `historyId` tracking
-* Telegram uses message ID checkpoints
-* Only new messages are fetched on subsequent syncs
-* Data is processed asynchronously through a queue system
+* Gmail: uses `historyId`
+* Telegram: uses `chatStates + message_id checkpoints`
+* Only new messages are fetched after initial sync
+* Processing happens via queue workers
 
 ---
 
 ## Search Pipeline
 
-1. User submits natural language query
-2. Query is converted into embeddings
-3. Hybrid retrieval is performed:
+1. User sends query
+2. Query is embedded into vector space
+3. Hybrid retrieval:
 
-   * Full-text search (PostgreSQL)
-   * Vector similarity search (pgvector)
-4. Top results are passed into the RAG model
-5. Final response is generated using contextual data
+   * Full-text search (Postgres FTS)
+   * Vector similarity (pgvector)
+4. Results ranked using hybrid scoring
+5. RAG model generates final answer
 
 ---
 
-## AI Models
-
-The system uses Ollama for local model execution.
+## AI Models (Ollama)
 
 Recommended models:
 
-* `qwen2.5:3b` (main reasoning model)
-* `nomic-embed-text` (embedding model)
+* `qwen2.5:3b` → reasoning + response generation
+* `nomic-embed-text` → embeddings
 
 ---
 
@@ -235,7 +280,7 @@ Recommended models:
 npm run dev
 ```
 
-### Run Telegram sync service manually
+### Run Telegram sync manually
 
 ```bash
 cd integration/telegram_service
@@ -244,13 +289,13 @@ python main.py
 
 ---
 
-## Security and Privacy
+## Security & Privacy
 
-* All data is processed locally by default
-* OAuth credentials are required for external integrations
-* Users control access to their connected accounts
-* Data can be disconnected or removed at any time
-* No data is shared externally unless explicitly configured
+* All processing is local-first by default
+* OAuth tokens stored securely
+* Telegram sessions stored locally
+* Users fully control integrations
+* No external data sharing unless configured
 
 ---
 
@@ -259,7 +304,7 @@ python main.py
 * Backend: Node.js, ExpressJS, TypeScript
 * Sync Service: Python (Telethon)
 * Database: PostgreSQL + pgvector
-* Cache/Queue: Redis, BullMQ
+* Cache/Queue: Redis / BullMQ
 * AI Runtime: Ollama
 * Frontend: React
 
@@ -267,9 +312,10 @@ python main.py
 
 ## Project Scope
 
-This project is designed for educational and research purposes, demonstrating:
+This project demonstrates:
 
-* AI-based communication processing
-* Vector database usage
-* RAG pipeline architecture
+* AI-powered personal data retrieval
+* Vector database design (pgvector)
 * Hybrid search systems
+* RAG pipelines
+* Multi-source data integration (Gmail + Telegram)
