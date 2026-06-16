@@ -121,7 +121,7 @@ GOOGLE_REDIRECT_URI=http://localhost:8000/api/integration/google/callback
 
 ---
 
-# ⚠️ Adding Gmail Test Users
+# Adding Gmail Test Users
 
 If your app is in “Testing mode”:
 
