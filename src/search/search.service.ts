@@ -23,7 +23,7 @@ class SearchService {
 
   queryVector = async (
     data: z.infer<typeof Search_Request>,
-    limit: number = 8,
+    limit: number = (process.env.QUERY_LIMIT ? parseInt(process.env.QUERY_LIMIT) : 10),
   ) => {
     try {
       const queryVector = await this.embeddings.query_embedding(data.query);
