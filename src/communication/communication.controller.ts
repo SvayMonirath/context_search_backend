@@ -35,6 +35,7 @@ class CommunicationController {
         body: JSON.stringify({
           integration_id: integration.id,
           last_sync: integration.metadata || {},
+          chat_limit: process.env.TELEGRAM_SYNC_CHAT_LIMIT ? parseInt(process.env.TELEGRAM_SYNC_CHAT_LIMIT) : 10, 
         }),
       });
 

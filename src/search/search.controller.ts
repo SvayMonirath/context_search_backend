@@ -36,6 +36,7 @@ class SearchController {
       const result = await this.searchService.queryVector({ query });
 
       console.log("Search results found:", result.results.length);
+      console.log("Search results:", result.results);
       res.write(`data: ${JSON.stringify({
         type: "status",
         stage: "generating",
