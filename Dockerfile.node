@@ -14,9 +14,10 @@ COPY . .
 
 
 RUN npx prisma generate
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 
 # Expose Node backend port
 EXPOSE 8000
 
-# Run in dev mode using tsx watch
-CMD ["pnpm", "run", "dev"]
+ENTRYPOINT ["sh", "./docker-entrypoint.sh"]
