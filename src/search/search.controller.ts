@@ -14,7 +14,7 @@ class SearchController {
   streamSearch = async (req: express.Request, res: express.Response) => {
     try {
       const query = req.body.query;
-      const profileId = req.query.profileId;
+      const profileID = req.query.profileId;
       let chatId = req.query.chatId;
 
       res.setHeader("Content-Type", "text/event-stream");
@@ -33,7 +33,7 @@ class SearchController {
 
       // 2. run vector search
       const searchStart = Date.now();
-      const result = await this.searchService.queryVector({ query });
+      const result = await this.searchService.queryVector({ query }, 10, profileID as string);
 
       console.log("Search results found:", result.results.length);
       console.log("Search results:", result.results);
@@ -61,7 +61,7 @@ class SearchController {
 
       await this.searchService.save_search_history(
         chatId as string,
-        profileId as string,
+        profileID as string,
         query,
         result.results,
         fullResponse,
