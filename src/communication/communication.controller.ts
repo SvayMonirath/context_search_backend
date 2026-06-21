@@ -35,7 +35,7 @@ class CommunicationController {
         body: JSON.stringify({
           integration_id: integration.id,
           last_sync: integration.metadata || {},
-          chat_limit: process.env.TELEGRAM_SYNC_CHAT_LIMIT ? parseInt(process.env.TELEGRAM_SYNC_CHAT_LIMIT) : 10, 
+          chat_limit: process.env.TELEGRAM_SYNC_CHAT_LIMIT ? parseInt(process.env.TELEGRAM_SYNC_CHAT_LIMIT) : 10,
         }),
       });
 
@@ -147,6 +147,27 @@ class CommunicationController {
       });
     }
   };
+
+  delete_communications = async (req: express.Request, res: express.Response) => {
+    try {
+      if(!req.params.profile_id) {
+        throw new Error("Profile ID is required");
+      }
+      const profile_id: string | string[] | undefined = req.params.profile_id;
+
+      if(!req.body.selected_communications) {
+        throw new Error("")
+      }
+
+
+
+    } catch (error: any) {
+      return res.status(500).json({
+        status: "error",
+        message: error.message,
+      });
+    }
+  }
 }
 
 export default CommunicationController;
