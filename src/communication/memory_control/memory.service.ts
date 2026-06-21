@@ -13,4 +13,16 @@ export class MemoryService {
 
     return this.memoryRepository.delete_communications(profileID, communicationIDs);
   }
+
+  createRule = async (params: any) => {
+    return this.memoryRepository.createRule(params);
+  }
+
+  getRules = async (profileID: string) => {
+    return this.memoryRepository.getRules(profileID);
+  }
+
+  deleteRule = async (profileID: string, ruleID: string) => {
+    return this.memoryRepository.deleteRule(profileID, ruleID);
+  }
 }

@@ -13,6 +13,9 @@ const memoryController = new MemoryController(memoryService);
 
 router.use(verify_access_token);
 router.get("/communication/search/:profile_id", memoryController.search_memory);
-router.delete("/communicaiton/:profile_id", )
+router.delete("/communication/:profile_id", memoryController.delete_communications);
+router.post("/profile/:profile_id/rules", memoryController.createRule);
+router.get("/profile/:profile_id/rules", memoryController.getRules);
+router.delete("/profile/:profile_id/rule/:rule_id", memoryController.deleteRule);
 
 export { router as Memory_Router };

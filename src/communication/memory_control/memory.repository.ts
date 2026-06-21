@@ -1,5 +1,6 @@
 import { IntegrationType } from '@prisma/client';
 import prisma from "../../prisma.client.js";
+import { create } from 'node:domain';
 
 export class MemoryRepository {
   constructor() {}
@@ -65,5 +66,62 @@ export class MemoryRepository {
         isDeleted: true,
       },
     });
+  }
+
+  createRule = async (params: { profileID: string; type: string; value: string; scope: string }) => {
+    const { profileID, type, value , scope} = params;
+    return await prisma.$transaction(async (prisma) => {
+      const rule = await prisma.memoryRule.create({
+        data: {
+          profileID,
+          type,
+          value,
+          scope,
+          isActive: true,
+        }
+      });
+
+      await prisma.memoryRuleHistory.create({
+        data: {
+          profileID,
+          action: "blocked",
+        }
+      })
+      return rule;
+    })
+  }
+
+  getRules = async (profileID: string) => {
+    return prisma.memoryRule.findMany({
+      where: {
+        profileID,
+        isActive: true,
+      },
+      orderBy: {
+        created_at: "desc",
+      }
+    })
+  }
+
+  deleteRule = async (profileID: string, ruleID: string) => {
+    // transaction
+    return await prisma.$transaction(async (prisma) => {
+      const rule = await prisma.memoryRule.update({
+        where: {
+          id: ruleID,
+        },
+        data: {
+          isActive: false,
+        }
+      })
+
+      await prisma.memoryRuleHistory.create({
+        data: {
+          profileID,
+          action: "deleted",
+        }
+      })
+      return rule;
+    })
   }
 }
