@@ -52,4 +52,18 @@ export class MemoryRepository {
         skip: offset,
       });
   }
+
+  delete_communications = async (profileID: string, communicationIDs: string[]) => {
+    return prisma.communication.updateMany({
+      where: {
+        id: {
+          in: communicationIDs,
+        },
+        profileID,
+      },
+      data: {
+        isDeleted: true,
+      },
+    });
+  }
 }
