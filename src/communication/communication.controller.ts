@@ -168,6 +168,38 @@ class CommunicationController {
       });
     }
   }
+
+  get_communications = async (req: express.Request, res: express.Response) => {
+    try {
+      if(!req.params.profile_id) {
+        throw new Error("Profile ID is required");
+      }
+      if(!req.params.limit || !req.params.page) {
+        throw new Error("Limit and page parameters are required");
+      }
+
+      const { profile_id, limit, page } = req.params;
+       const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+
+      const { data, total } = await this.communicationService.get_communications(profile_id as string, offset, parseInt(limit as string));
+
+      return res.status(200).json({
+        status: "success",
+        message: "Communications retrieved successfully",
+        data: {
+          communications: data,
+          total,
+          page: parseInt(page as string),
+          limit: parseInt(limit as string),
+        }
+      });
+    } catch (error: any)  {
+      return res.status(500).json({
+        status: "error",
+        message: error.message || "Failed to retrieve communications",
+      });
+    }
+  }
 }
 
 export default CommunicationController;

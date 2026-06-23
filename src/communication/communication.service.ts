@@ -29,6 +29,13 @@ class CommunicationService {
     this.chunkingService = chunkingService;
   }
 
+  get_communications = async (profileID: string, offset: number, limit: number) => {
+    if (!profileID) {
+      throw new Error("Profile ID is required");
+    }
+    return await this.communicationRepository.get_communications(profileID, offset, limit);
+  }
+
   fetch_emails = async (profile_id: string, maxResults = 10) => {
     if (!profile_id) {
       throw new Error("Profile ID is required");

@@ -115,6 +115,7 @@ model Communication {
   metadata Json?
 
   sent_at DateTime
+  isDeleted Boolean @default(false)
 
   created_at DateTime @default(now())
 

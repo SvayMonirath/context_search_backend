@@ -39,39 +39,31 @@ export class MemoryController {
     }
   };
 
-  delete_communications = async (
-    req: express.Request,
-    res: express.Response,
-  ) => {
+  delete_communications = async (req: express.Request, res: express.Response) => {
     try {
-      if (!req.params.profile_id) {
+      const profileID: string = req.params.profile_id as string;
+      const { communicationIDs } = req.body;
+
+      if (!profileID) {
         throw new Error("Profile ID is required");
       }
 
-      if (!req.body.selected_communications) {
-        throw new Error("Selected communications are required");
-      }
-
-      const profileID: string | string[] | undefined = req.params.profile_id;
-      const { communicationIDs } = req.body;
-
       if (!communicationIDs || !Array.isArray(communicationIDs)) {
-        throw new Error(
-          "communicationIDs must be an array of communication IDs",
-        );
+        return res.status(400).json({
+          status: "error",
+          message: "communicationIDs must be an array",
+        });
       }
 
-      await this.memoryService.delete_communications(
-        profileID,
-        communicationIDs,
-      );
+      await this.memoryService.delete_communications(profileID, communicationIDs);
 
       return res.status(200).json({
         status: "success",
         message: "Communications deleted successfully",
       });
-    } catch (error: any) {
-      res.status(500).json({
+
+    } catch (error) {
+      return res.status(500).json({
         status: "error",
         message: "Failed to delete communications",
       });

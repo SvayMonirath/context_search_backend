@@ -208,6 +208,37 @@ class CommunicationRepository {
       });
     });
   }
+
+  async get_communications(profileID: string, offset: number, limit: number) {
+    const [data, total] = await Promise.all([
+      prisma.communication.findMany({
+        where: {
+          profileID,
+          isDeleted: false,
+        },
+        include: {
+          integration: {
+            select: {
+              type: true,
+            },
+          },
+        },
+        orderBy: {
+          sent_at: "desc",
+        },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.communication.count({
+        where: {
+          profileID,
+          isDeleted: false,
+        },
+      }),
+    ]);
+
+    return { data, total };
+  }
 }
 
 export default CommunicationRepository;
