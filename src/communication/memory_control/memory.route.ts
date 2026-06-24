@@ -12,7 +12,7 @@ const memoryController = new MemoryController(memoryService);
 
 
 router.use(verify_access_token);
-router.get("/communication/search/:profile_id", memoryController.search_memory);
+router.post("/communication/search/:profile_id", memoryController.search_memory);
 router.post("/communication/:profile_id/delete", memoryController.delete_communications);
 router.post("/profile/:profile_id/rules", memoryController.createRule);
 router.get("/profile/:profile_id/rules", memoryController.getRules);

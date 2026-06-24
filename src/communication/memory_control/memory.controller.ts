@@ -34,7 +34,7 @@ export class MemoryController {
     } catch (error: any) {
       res.status(500).json({
         status: "error",
-        message: "Failed to search memory",
+        message: error.message || "Memory search failed",
       });
     }
   };

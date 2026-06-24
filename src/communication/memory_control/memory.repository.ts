@@ -8,11 +8,11 @@ export class MemoryRepository {
   search_memory = async (params: {
     profileID: string;
     query?: string;
-    filter?: any;
+    filters?: any;
     limit?: number;
     offset?: number;
   }) => {
-      const { profileID, query, filter, limit, offset } = params;
+      const { profileID, query, filters, limit, offset } = params;
 
       const where: any = {
         profileID,
@@ -28,19 +28,19 @@ export class MemoryRepository {
       }
 
       // filters
-      if (filter?.sender) {
-        where.sender = filter.sender;
+      if (filters?.sender) {
+        where.sender = filters.sender;
       }
 
-      if (filter?.type) {
-        where.type = filter.type;
+      if (filters?.type) {
+        where.type = filters.type;
       }
 
       // date range
-      if (filter?.dateFrom || filter?.dateTo) {
+      if (filters?.dateFrom || filters?.dateTo) {
         where.sent_at = {
-          gte: filter.dateFrom ? new Date(filter.dateFrom) : undefined,
-          lte: filter.dateTo ? new Date(filter.dateTo) : undefined,
+          gte: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
+          lte: filters.dateTo ? new Date(filters.dateTo) : undefined,
         };
       }
 
