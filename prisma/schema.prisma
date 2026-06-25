@@ -53,7 +53,7 @@ model Profile {
   searches SearchHistory[]
   chats Chat[]
   memoryRules MemoryRule[]
-  memoryDeletionLogs MemoryDeletionLog[]
+  memoryLog MemoryLog[]
 }
 
 enum IntegrationType {
@@ -213,16 +213,23 @@ model MemoryRule {
   created_at DateTime @default(now())
 }
 
-model MemoryDeletionLog {
+enum LogAction {
+  BLOCKED
+  CANCELED
+  DELETED
+  HIDDEN
+}
+
+model MemoryLog {
   id String @id @default(cuid())
 
   profileID String
   profile Profile @relation(fields: [profileID], references: [id], onDelete: Cascade)
 
-  targetType String // communication | chunk | sender | integration
+  targetType MemoryRuleType // communication | chunk | sender | integration
   targetValue String
 
-  action String // delete | hide | block
+  action LogAction
 
   created_at DateTime @default(now())
 }

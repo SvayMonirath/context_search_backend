@@ -78,7 +78,7 @@ export class MemoryController {
       const profileID: string | string[] | undefined = req.params.profile_id as string;
 
       const { type, value, scope } = req.body;
-      const rule = await this.memoryService.createRule({ profileID, type, scope, value });
+      await this.memoryService.createRule({ profileID, type, scope, value });
 
       res.status(201).json({
         status: "success",
@@ -87,7 +87,7 @@ export class MemoryController {
     } catch (error: any) {
       res.status(500).json({
         status: "error",
-        message: "Failed to create rules",
+        message: error.message || "Failed to create rule",
       });
     }
   }
