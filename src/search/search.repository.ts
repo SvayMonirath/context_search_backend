@@ -1,13 +1,25 @@
 import prisma from "../prisma.client.js";
+import { matchesMemoryRules } from "../utils/memoryRules.utils.js";
 
 class SearchRepository {
 async hybridSearch(
   queryText: string,
   queryVector: number[],
   limit: number = 10,
+  profileID: string
 ) {
   const vectorString = `[${queryVector.join(",")}]`;
   const candidateLimit = Math.max(limit * 8, 80);
+
+  const rules = await prisma.memoryRule.findMany({
+    where: {
+      profileID,
+      isActive: true,
+      scope: {
+        in: ["RETRIEVAL", "BOTH"],
+      },
+    },
+  });
 
   const results: any[] = await prisma.$queryRaw`
     WITH candidates AS (
@@ -89,7 +101,20 @@ async hybridSearch(
     LIMIT ${candidateLimit};
   `;
 
-  return this.applyDiversityFilter(results, limit);
+  const filteredResults = results.filter((item) => {
+    const { blocked } = matchesMemoryRules(
+      {
+        sender: String(item.sender || "Unknown"),
+        content: item.content ?? "",
+        integrationID: item.integrationID,
+      },
+      rules,
+    );
+
+    return !blocked;
+  });
+
+  return this.applyDiversityFilter(filteredResults, limit);
 }
 
 private applyDiversityFilter(results: any[], limit: number) {

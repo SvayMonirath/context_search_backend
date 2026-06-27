@@ -10,6 +10,7 @@ import { router as Integration_Router } from "./integration/integration.route.js
 import { router as Communication_Router } from "./communication/communication.route.js";
 import { Chat_Router } from "./chat/chat.route.js";
 import { Search_Router } from "./search/search.route.js";
+import { Memory_Router } from "./communication/memory_control/memory.route.js";
 
 dotenv.config();
 const app: express.Application = express();
@@ -28,5 +29,6 @@ app.use("/api/integration", Integration_Router);
 app.use("/api/communication", Communication_Router);
 app.use("/api/search", Search_Router);
 app.use("/api/chat", Chat_Router);
+app.use("/api/memory", Memory_Router);
 
 export default app;

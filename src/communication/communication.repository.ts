@@ -1,4 +1,5 @@
 import { CommunicationType, IntegrationType } from "@prisma/client";
+import { matchesMemoryRules } from "../utils/memoryRules.utils.js";
 import prisma from "../prisma.client.js";
 
 class CommunicationRepository {
@@ -9,6 +10,26 @@ class CommunicationRepository {
     msg: any,
   ) {
     try {
+      const { blocked } = matchesMemoryRules(
+        {
+          sender: String(msg.sender_name || "Unknown"),
+          content: msg.text ?? "",
+          integrationID,
+        },
+        await prisma.memoryRule.findMany({
+          where: {
+            profileID,
+            isActive: true,
+            scope: {
+              in: ["INGESTION", "BOTH"],
+            },
+          },
+        }),
+      );
+      if (blocked) {
+        return null;
+      }
+
       return prisma.communication.upsert({
         where: {
           integrationID_externalID: {
@@ -48,6 +69,28 @@ class CommunicationRepository {
 
   save_email = async (profileID: string, integrationID: string, email: any) => {
     try {
+
+      const { blocked } = matchesMemoryRules(
+        {
+          sender: email.from ?? "Unknown",
+          content: email.body ?? "",
+          integrationID,
+        },
+        await prisma.memoryRule.findMany({
+          where: {
+            profileID,
+            isActive: true,
+            scope: {
+              in: ["INGESTION", "BOTH"],
+            },
+          },
+        }),
+      );
+
+      if (blocked) {
+        return null;
+      }
+
       const externalID = email.id ?? null;
 
       // If this message already exists for the same integration, refresh it
@@ -164,6 +207,37 @@ class CommunicationRepository {
         orderBy: { chunkIndex: "asc" },
       });
     });
+  }
+
+  async get_communications(profileID: string, offset: number, limit: number) {
+    const [data, total] = await Promise.all([
+      prisma.communication.findMany({
+        where: {
+          profileID,
+          isDeleted: false,
+        },
+        include: {
+          integration: {
+            select: {
+              type: true,
+            },
+          },
+        },
+        orderBy: {
+          sent_at: "desc",
+        },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.communication.count({
+        where: {
+          profileID,
+          isDeleted: false,
+        },
+      }),
+    ]);
+
+    return { data, total };
   }
 }
 

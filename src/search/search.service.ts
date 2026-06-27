@@ -13,17 +13,18 @@ class SearchService {
 
   save_search_history = async (
     chatId: string,
-    profileId: string,
+    profileID: string,
     query: string,
     results: any[],
     response: string
   ) => {
-    await this.searchHistoryRepository.save_search_history(chatId, profileId, query, results, response);
+    await this.searchHistoryRepository.save_search_history(chatId, profileID, query, results, response);
   }
 
   queryVector = async (
     data: z.infer<typeof Search_Request>,
     limit: number = (process.env.QUERY_LIMIT ? parseInt(process.env.QUERY_LIMIT) : 10),
+    profileID: string,
   ) => {
     try {
       const queryVector = await this.embeddings.query_embedding(data.query);
@@ -32,6 +33,7 @@ class SearchService {
         data.query,
         queryVector,
         limit,
+        profileID
       );
 
       const normalizedQuery = data.query.toLowerCase().trim();

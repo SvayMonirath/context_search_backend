@@ -52,6 +52,8 @@ model Profile {
   communications Communication[]
   searches SearchHistory[]
   chats Chat[]
+  memoryRules MemoryRule[]
+  memoryLog MemoryLog[]
 }
 
 enum IntegrationType {
@@ -113,6 +115,7 @@ model Communication {
   metadata Json?
 
   sent_at DateTime
+  isDeleted Boolean @default(false)
 
   created_at DateTime @default(now())
 
@@ -183,3 +186,51 @@ model SearchHistory {
 
   created_at DateTime @default(now())
 }
+
+enum MemoryRuleType {
+  BLOCK_SENDER
+  BLOCK_CHAT
+  BLOCK_INTEGRATION
+  BLOCK_KEYWORD
+}
+enum MemoryScope {
+  INGESTION
+  RETRIEVAL
+  BOTH
+}
+model MemoryRule {
+  id String @id @default(cuid())
+  profileID String
+  profile Profile @relation(fields: [profileID], references: [id], onDelete: Cascade)
+
+  type MemoryRuleType
+  scope MemoryScope
+
+  value String[] // email, chat_id, sender, etc
+
+  isActive Boolean @default(true)
+
+  created_at DateTime @default(now())
+}
+
+enum LogAction {
+  BLOCKED
+  CANCELED
+  DELETED
+  HIDDEN
+}
+
+model MemoryLog {
+  id String @id @default(cuid())
+
+  profileID String
+  profile Profile @relation(fields: [profileID], references: [id], onDelete: Cascade)
+
+  targetType MemoryRuleType // communication | chunk | sender | integration
+  targetValue String
+
+  action LogAction
+
+  created_at DateTime @default(now())
+}
+

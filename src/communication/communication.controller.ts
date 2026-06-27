@@ -12,12 +12,12 @@ class CommunicationController {
   constructor(private communicationService: CommunicationService, private integrationRepository: IntegrationRepository, private communicationRepository: CommunicationRepository) {}
 
   sync_telegram = async (req: express.Request, res: express.Response) => {
+    let profile_id: string | undefined;
     try {
-
       if(!req.params.profile_id) {
         throw new Error("Profile ID is required");
       }
-      const profile_id = req.params.profile_id;
+      profile_id = req.params.profile_id as string;
 
       const integration = await this.integrationRepository.get_active_telegram_integration(profile_id);
 
@@ -35,7 +35,7 @@ class CommunicationController {
         body: JSON.stringify({
           integration_id: integration.id,
           last_sync: integration.metadata || {},
-          chat_limit: process.env.TELEGRAM_SYNC_CHAT_LIMIT ? parseInt(process.env.TELEGRAM_SYNC_CHAT_LIMIT) : 10, 
+          chat_limit: process.env.TELEGRAM_SYNC_CHAT_LIMIT ? parseInt(process.env.TELEGRAM_SYNC_CHAT_LIMIT) : 10,
         }),
       });
 
@@ -63,6 +63,11 @@ class CommunicationController {
               integration.id,
               msg,
             );
+
+            if(!communication) {
+              console.log(`Message ${msg.message_id} was blocked by memory rules and was not saved.`);
+              return;
+            }
 
             await communicationQueue.add("chunk-communication", {
               communicationID: communication.id,
@@ -108,19 +113,14 @@ class CommunicationController {
       }
       console.log("==========================================");
 
-      try {
-        if (profile_id) {
-          const integration = await this.integrationRepository.get_active_telegram_integration(profile_id);
-          if (integration) {
-            await this.integrationRepository.update_integration(integration.id, {
-              syncStatus: SyncStatus.FAILED,
-            });
-          }
+      if (profile_id) {
+        const integration = await this.integrationRepository.get_active_telegram_integration(profile_id);
+        if (integration) {
+          await this.integrationRepository.update_integration(integration.id, {
+            syncStatus: SyncStatus.FAILED,
+          });
         }
-      } catch (dbError: any) {
-        console.error("Failed to mark integration status as FAILED:", dbError.message);
       }
-
       return {
         status: "error",
         message: "Telegram sync failed",
@@ -147,6 +147,66 @@ class CommunicationController {
       });
     }
   };
+
+  // delete_communications = async (req: express.Request, res: express.Response) => {
+  //   try {
+  //     if(!req.params.profile_id) {
+  //       throw new Error("Profile ID is required");
+  //     }
+  //     const profile_id: string | string[] | undefined = req.params.profile_id;
+
+  //     if(!req.body.selected_communications) {
+  //       throw new Error("Selected communications are required");
+  //     }
+
+  //     const selected_communications: string[] = req.body.selected_communications;
+
+  //     await this.communicationService.delete_communications(profile_id as string, selected_communications);
+
+  //     return res.status(200).json({
+  //       status: "success",
+  //       message: "Communications deleted successfully",
+  //     });
+
+  //   } catch (error: any) {
+  //     return res.status(500).json({
+  //       status: "error",
+  //       message: error.message,
+  //     });
+  //   }
+  // }
+
+  get_communications = async (req: express.Request, res: express.Response) => {
+    try {
+      if(!req.params.profile_id) {
+        throw new Error("Profile ID is required");
+      }
+      if(!req.params.limit || !req.params.page) {
+        throw new Error("Limit and page parameters are required");
+      }
+
+      const { profile_id, limit, page } = req.params;
+       const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+
+      const { data, total } = await this.communicationService.get_communications(profile_id as string, offset, parseInt(limit as string));
+
+      return res.status(200).json({
+        status: "success",
+        message: "Communications retrieved successfully",
+        data: {
+          communications: data,
+          total,
+          page: parseInt(page as string),
+          limit: parseInt(limit as string),
+        }
+      });
+    } catch (error: any)  {
+      return res.status(500).json({
+        status: "error",
+        message: error.message || "Failed to retrieve communications",
+      });
+    }
+  }
 }
 
 export default CommunicationController;
