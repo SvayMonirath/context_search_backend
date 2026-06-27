@@ -28,7 +28,10 @@ export class MemoryRepository {
 
       // filters
       if (filters?.sender) {
-        where.sender = filters.sender;
+        where.sender = {
+          contains: filters.sender,
+          mode: "insensitive",
+        }
       }
 
       if (filters?.type) {
