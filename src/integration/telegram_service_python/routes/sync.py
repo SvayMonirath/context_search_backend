@@ -109,3 +109,63 @@ async def sync_telegram(data: dict):
         return {
             "error": str(e)
         }
+
+@router.post("/stateless-search")
+async def stateless_search_telegram(data: dict):
+    try:
+        integration_id = data.get("integration_id")
+        query = data.get("query", "")
+        chat_limit = data.get("chat_limit", 10)
+
+        client = get_telegram_client(integration_id)
+
+        if not client.is_connected():
+            await client.connect()
+
+        if not await client.is_user_authorized():
+            return {"error": "not authorized"}
+
+        keywords = query.lower().split(" ")
+
+        messages = []
+
+        chat_count = 0
+
+        async for dialog in client.iter_dialogs():
+
+            if chat_count >= chat_limit:
+                break
+
+            chat_count += 1
+
+            async for msg in client.iter_messages(dialog.id, limit=30):
+
+                if not msg.text:
+                    continue
+
+                text = msg.text.lower()
+
+                # lightweight filtering (stateless)
+                if keywords and not any(k in text for k in keywords):
+                    continue
+
+                sender = await msg.get_sender()
+
+                messages.append({
+                    "message_id": str(msg.id),
+                    "chat_id": str(dialog.id),
+                    "chat_title": dialog.name or "Unknown",
+                    "sender_id": str(msg.sender_id),
+                    "sender_name": getattr(sender, "first_name", "Unknown"),
+                    "text": msg.text,
+                    "date": msg.date.isoformat(),
+                })
+
+        return {
+            "messages": messages
+        }
+
+    except Exception as e:
+        return {
+            "error": str(e)
+        }

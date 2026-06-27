@@ -9,17 +9,25 @@ import CommunicationRepository from "./communication.repository.js";
 import { SyncStatus } from "@prisma/client";
 
 class CommunicationController {
-  constructor(private communicationService: CommunicationService, private integrationRepository: IntegrationRepository, private communicationRepository: CommunicationRepository) {}
+  constructor(
+    private communicationService: CommunicationService,
+    private integrationRepository: IntegrationRepository,
+    private communicationRepository: CommunicationRepository,
+  ) {}
+
 
   sync_telegram = async (req: express.Request, res: express.Response) => {
     let profile_id: string | undefined;
     try {
-      if(!req.params.profile_id) {
+      if (!req.params.profile_id) {
         throw new Error("Profile ID is required");
       }
       profile_id = req.params.profile_id as string;
 
-      const integration = await this.integrationRepository.get_active_telegram_integration(profile_id);
+      const integration =
+        await this.integrationRepository.get_active_telegram_integration(
+          profile_id,
+        );
 
       if (!integration) {
         throw new Error("Telegram integration not found");
@@ -29,15 +37,20 @@ class CommunicationController {
         syncStatus: SyncStatus.SYNCING,
       });
 
-      const response = await fetch(`http://${process.env.PYTHON_BACKEND_HOST || "localhost"}:${process.env.PYTHON_BACKEND_PORT || "8001"}/telegram/sync-telegram`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          integration_id: integration.id,
-          last_sync: integration.metadata || {},
-          chat_limit: process.env.TELEGRAM_SYNC_CHAT_LIMIT ? parseInt(process.env.TELEGRAM_SYNC_CHAT_LIMIT) : 10,
-        }),
-      });
+      const response = await fetch(
+        `http://${process.env.PYTHON_BACKEND_HOST || "localhost"}:${process.env.PYTHON_BACKEND_PORT || "8001"}/telegram/sync-telegram`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            integration_id: integration.id,
+            last_sync: integration.metadata || {},
+            chat_limit: process.env.TELEGRAM_SYNC_CHAT_LIMIT
+              ? parseInt(process.env.TELEGRAM_SYNC_CHAT_LIMIT)
+              : 10,
+          }),
+        },
+      );
 
       console.log("Sent request to sync with Telegram");
       if (!response.ok) {
@@ -58,14 +71,17 @@ class CommunicationController {
           limit(async () => {
             const start = Date.now();
 
-            const communication = await this.communicationRepository.save_telegram_message(
-              integration.profileID,
-              integration.id,
-              msg,
-            );
+            const communication =
+              await this.communicationRepository.save_telegram_message(
+                integration.profileID,
+                integration.id,
+                msg,
+              );
 
-            if(!communication) {
-              console.log(`Message ${msg.message_id} was blocked by memory rules and was not saved.`);
+            if (!communication) {
+              console.log(
+                `Message ${msg.message_id} was blocked by memory rules and was not saved.`,
+              );
               return;
             }
 
@@ -73,16 +89,20 @@ class CommunicationController {
               communicationID: communication.id,
             });
 
-            console.log(`Processed message ${msg.message_id} in ${Date.now() - start}ms`);
-          })
-        )
+            console.log(
+              `Processed message ${msg.message_id} in ${Date.now() - start}ms`,
+            );
+          }),
+        ),
       );
       console.timeEnd("Total sync time");
 
       // Clean structural compilation for the Prisma JSON column
-      const existingMetadata = typeof integration.metadata === "object" && integration.metadata !== null
-        ? (integration.metadata as Record<string, any>)
-        : {};
+      const existingMetadata =
+        typeof integration.metadata === "object" &&
+        integration.metadata !== null
+          ? (integration.metadata as Record<string, any>)
+          : {};
 
       await this.integrationRepository.update_integration(integration.id, {
         syncStatus: SyncStatus.SUCCESS,
@@ -102,7 +122,6 @@ class CommunicationController {
         message: "Telegram sync completed successfully",
         data: { syncedMessages: data.messages.length },
       };
-
     } catch (error: any) {
       // Avoid raw object printing to shield against circular reference rendering crashes
       console.log("==========================================");
@@ -114,7 +133,10 @@ class CommunicationController {
       console.log("==========================================");
 
       if (profile_id) {
-        const integration = await this.integrationRepository.get_active_telegram_integration(profile_id);
+        const integration =
+          await this.integrationRepository.get_active_telegram_integration(
+            profile_id,
+          );
         if (integration) {
           await this.integrationRepository.update_integration(integration.id, {
             syncStatus: SyncStatus.FAILED,
@@ -178,17 +200,22 @@ class CommunicationController {
 
   get_communications = async (req: express.Request, res: express.Response) => {
     try {
-      if(!req.params.profile_id) {
+      if (!req.params.profile_id) {
         throw new Error("Profile ID is required");
       }
-      if(!req.params.limit || !req.params.page) {
+      if (!req.params.limit || !req.params.page) {
         throw new Error("Limit and page parameters are required");
       }
 
       const { profile_id, limit, page } = req.params;
-       const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+      const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
 
-      const { data, total } = await this.communicationService.get_communications(profile_id as string, offset, parseInt(limit as string));
+      const { data, total } =
+        await this.communicationService.get_communications(
+          profile_id as string,
+          offset,
+          parseInt(limit as string),
+        );
 
       return res.status(200).json({
         status: "success",
@@ -198,15 +225,15 @@ class CommunicationController {
           total,
           page: parseInt(page as string),
           limit: parseInt(limit as string),
-        }
+        },
       });
-    } catch (error: any)  {
+    } catch (error: any) {
       return res.status(500).json({
         status: "error",
         message: error.message || "Failed to retrieve communications",
       });
     }
-  }
+  };
 }
 
 export default CommunicationController;

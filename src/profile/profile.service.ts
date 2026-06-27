@@ -18,18 +18,6 @@ class ProfileService {
       throw new Error("Profile with this name already exists");
     }
 
-    if( profile_data.type === "PRIVATE" && !profile_data.password) {
-      throw new Error("Password is required for PRIVATE profiles");
-    }
-
-    if(profile_data.password && profile_data.password !== profile_data.confirm_password) {
-      throw new Error("Password and confirm password do not match");
-    }
-
-    if (profile_data.password) {
-      profile_data.password = await this.passwordService.hash_password(profile_data.password);
-    }
-
     const new_profile = await this.profileRepository.create_profile(profile_data);
 
     return new_profile;

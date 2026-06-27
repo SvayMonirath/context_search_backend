@@ -91,6 +91,80 @@ class SearchController {
       res.end();
     }
   };
+
+
+  statelessSearch = async (req: express.Request, res: express.Response) => {
+    try {
+      const query = req.body.query;
+      const profileID = req.query.profileId as string;
+      let chatId = req.query.chatId;
+
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      res.flushHeaders();
+
+      if(!query || !profileID) {
+        throw new Error("Query and profileId are required");
+      }
+
+      res.write(`data: ${JSON.stringify({
+        type: "status",
+        stage: "generating",
+        message: "Building  response from memory"
+      })}\n\n`);
+
+      const searchStart = Date.now();
+
+      const searchResult = await this.searchService.extractStatelessSearch(
+        query,
+        profileID,
+      );
+
+      const context = this.searchService.buildContext(searchResult.results);
+
+      const stream = this.ragService.generateResponseStream(context, query);
+
+
+      let ragStart = Date.now();
+
+      let fullResponse = "";
+
+      for await (const chunk of stream) {
+        res.write(`data: ${JSON.stringify({
+          type: "token",
+          content: chunk,
+        })}\n\n`);
+        fullResponse += chunk;
+      }
+
+      await this.searchService.save_search_history(
+        chatId as string,
+        profileID as string,
+        query,
+        [],
+        fullResponse,
+      );
+
+      const ragTime = Date.now() - ragStart;
+      console.log(`RAG response generation completed in ${ragTime} ms`);
+      res.write(`data: ${JSON.stringify({
+        type: "done",
+        sources: [],
+        timings: {
+          hybrid_search_time_ms: Date.now() - searchStart,
+          rag_time_ms: ragTime,
+        }
+      })}\n\n`);
+
+      res.end();
+
+    } catch (error: any) {
+      console.error(error);
+      res.status(500).json(error.message);
+    }
+  }
 }
 
 export default SearchController;
