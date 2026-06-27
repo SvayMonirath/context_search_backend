@@ -29,11 +29,70 @@ class CommunicationService {
     this.chunkingService = chunkingService;
   }
 
-  get_communications = async (profileID: string, offset: number, limit: number) => {
+  get_communications = async (
+    profileID: string,
+    offset: number,
+    limit: number,
+  ) => {
     if (!profileID) {
       throw new Error("Profile ID is required");
     }
-    return await this.communicationRepository.get_communications(profileID, offset, limit);
+    return await this.communicationRepository.get_communications(
+      profileID,
+      offset,
+      limit,
+    );
+  };
+
+  async fetchGmailCandidates(profileID: string, parsed: any) {
+    const integration =
+      await this.integrationRepository.get_active_gmail_integration(profileID);
+
+    if (!integration) return [];
+
+    const gmailClient = await this.googleOAuthService.create_gmail_client({
+      profileID: integration.profileID,
+      accessToken: integration.accessToken,
+      refreshToken: integration.refreshToken,
+    });
+
+    // Build query dynamically from parsed keywords
+    const q = parsed.keywords?.join(" ") || "";
+
+    const res = await gmailClient.users.messages.list({
+      userId: "me",
+      maxResults: 20,
+      q, // 👈 IMPORTANT: Gmail native semantic-ish filtering
+    });
+
+    const messages = res.data.messages ?? [];
+
+    const fullMessages = await Promise.all(
+      messages.map(async (msg) => {
+        if (!msg.id) return null;
+
+        const full = await gmailClient.users.messages.get({
+          userId: "me",
+          id: msg.id,
+        });
+
+        const payload = full.data.payload;
+        const headers = payload?.headers || [];
+
+        const subject = headers.find((h) => h.name === "Subject")?.value || "";
+
+        return {
+          id: msg.id,
+          platform: "gmail",
+          content: this.extractEmailBody(payload),
+          sender: headers.find((h) => h.name === "From")?.value || "",
+          timestamp: Number(full.data.internalDate) || Date.now(),
+          subject,
+        };
+      }),
+    );
+
+    return fullMessages.filter(Boolean);
   }
 
   fetch_emails = async (profile_id: string, maxResults = 10) => {
@@ -41,7 +100,8 @@ class CommunicationService {
       throw new Error("Profile ID is required");
     }
 
-    const integration = await this.integrationRepository.get_active_gmail_integration(profile_id);
+    const integration =
+      await this.integrationRepository.get_active_gmail_integration(profile_id);
 
     if (!integration) {
       throw new Error("Gmail integration not found for the specified profile");
@@ -117,9 +177,9 @@ class CommunicationService {
     return emails.filter(Boolean);
   };
 
-
   sync_gmail = async (profile_id: string) => {
-    const integration = await this.integrationRepository.get_active_gmail_integration(profile_id);
+    const integration =
+      await this.integrationRepository.get_active_gmail_integration(profile_id);
 
     if (!integration) {
       throw new Error("Gmail integration not found for the specified profile");
@@ -135,13 +195,19 @@ class CommunicationService {
       syncStatus: status,
     });
 
-    console.log(`(Communication Service) Setting integration ${integration.id} status to SYNCING`);
+    console.log(
+      `(Communication Service) Setting integration ${integration.id} status to SYNCING`,
+    );
 
-    if(!integration.gmailHistoryId) {
-      console.log(`(Communication Service) Starting initial sync for integration ${integration.id}`);
+    if (!integration.gmailHistoryId) {
+      console.log(
+        `(Communication Service) Starting initial sync for integration ${integration.id}`,
+      );
       await this.initial_gmail_sync(integration);
     } else {
-      console.log(`(Communication Service) Starting incremental sync for integration ${integration.id}`);
+      console.log(
+        `(Communication Service) Starting incremental sync for integration ${integration.id}`,
+      );
       await this.incremental_gmail_sync(integration);
     }
     status = "SUCCESS";
@@ -149,12 +215,15 @@ class CommunicationService {
       syncStatus: status,
       lastSyncedAt: new Date(),
     });
-    console.log(`(Communication Service) Setting integration ${integration.id} status to SUCCESS`);
-  }
+    console.log(
+      `(Communication Service) Setting integration ${integration.id} status to SUCCESS`,
+    );
+  };
 
   initial_gmail_sync = async (integration: any) => {
-
-    const MAX_INITIAL_SYNC_MESSAGES = parseInt(process.env.EMAIL_INITIAL_SYNC_LIMIT || "1000"); // Safety cap to prevent syncing too many emails at once
+    const MAX_INITIAL_SYNC_MESSAGES = parseInt(
+      process.env.EMAIL_INITIAL_SYNC_LIMIT || "1000",
+    ); // Safety cap to prevent syncing too many emails at once
     const limit = pLimit(5); // Limit concurrency to 5
 
     const gmailClient = await this.googleOAuthService.create_gmail_client({
@@ -179,33 +248,38 @@ class CommunicationService {
       const messages = res.data.messages ?? [];
       totalMessages += messages.length;
 
-      await Promise.all(messages.map((msg) => {
-       if (!msg.id) return Promise.resolve();
+      await Promise.all(
+        messages.map((msg) => {
+          if (!msg.id) return Promise.resolve();
 
-        console.time(`Scheduling message ${msg.id} for processing`);
-        return limit(() => this.process_gmail_message(
-          gmailClient,
-          integration,
-          msg.id!,
-        ).then((result) => {
-          if (result?.historyId) {
-            latestHistoryId = result.historyId;
-          }
-        }));
-
-      }));
+          console.time(`Scheduling message ${msg.id} for processing`);
+          return limit(() =>
+            this.process_gmail_message(gmailClient, integration, msg.id!).then(
+              (result) => {
+                if (result?.historyId) {
+                  latestHistoryId = result.historyId;
+                }
+              },
+            ),
+          );
+        }),
+      );
 
       pageToken = res.data.nextPageToken;
     } while (pageToken && totalMessages <= MAX_INITIAL_SYNC_MESSAGES);
 
-    console.timeEnd(`Processing message batch for integration ${integration.id}`);
-    console.log(`(Communication Service) Initial Gmail sync completed for integration ${integration.id}. Total messages processed: ${totalMessages}. Latest history ID: ${latestHistoryId}`);
+    console.timeEnd(
+      `Processing message batch for integration ${integration.id}`,
+    );
+    console.log(
+      `(Communication Service) Initial Gmail sync completed for integration ${integration.id}. Total messages processed: ${totalMessages}. Latest history ID: ${latestHistoryId}`,
+    );
     if (latestHistoryId) {
       await this.integrationRepository.update_integration(integration.id, {
         gmailHistoryId: latestHistoryId,
       });
     }
-  }
+  };
 
   incremental_gmail_sync = async (integration: any) => {
     const gmailClient = await this.googleOAuthService.create_gmail_client({
@@ -233,46 +307,57 @@ class CommunicationService {
 
       let newHistoryId = startHistoryId;
 
-      console.time(`Processing message batch for integration ${integration.id}`);
+      console.time(
+        `Processing message batch for integration ${integration.id}`,
+      );
       for (const record of history) {
-        if(record.id) {
+        if (record.id) {
           newHistoryId = record.id;
         }
 
-        if(!record.messagesAdded) continue;
+        if (!record.messagesAdded) continue;
         total_added_messages += record.messagesAdded.length;
 
-        await Promise.all(record.messagesAdded.map((msg) => {
-          if (!msg.message?.id) return Promise.resolve();
+        await Promise.all(
+          record.messagesAdded.map((msg) => {
+            if (!msg.message?.id) return Promise.resolve();
 
-          return this.process_gmail_message(
-            gmailClient,
-            integration,
-            msg.message.id!,
-          );
-        }));
+            return this.process_gmail_message(
+              gmailClient,
+              integration,
+              msg.message.id!,
+            );
+          }),
+        );
 
         if (record.id) {
           newHistoryId = record.id;
         }
       }
 
-      console.timeEnd(`Processing message batch for integration ${integration.id}`);
-      console.log(`(Communication Service) Incremental Gmail sync completed for integration ${integration.id}. Total added messages: ${total_added_messages}. New history ID: ${newHistoryId}`);
+      console.timeEnd(
+        `Processing message batch for integration ${integration.id}`,
+      );
+      console.log(
+        `(Communication Service) Incremental Gmail sync completed for integration ${integration.id}. Total added messages: ${total_added_messages}. New history ID: ${newHistoryId}`,
+      );
 
       await this.integrationRepository.update_integration(integration.id, {
         gmailHistoryId: newHistoryId,
       });
-
     } catch (error: any) {
-      if(error.code === 404 || error.message?.includes("historyId")) {
+      if (error.code === 404 || error.message?.includes("historyId")) {
         return await this.initial_gmail_sync(integration);
       }
       throw error;
     }
-  }
+  };
 
-  process_gmail_message = async (gmailClient: any, integration: any, messageId: string) => {
+  process_gmail_message = async (
+    gmailClient: any,
+    integration: any,
+    messageId: string,
+  ) => {
     const detailResponse = await gmailClient.users.messages.get({
       userId: "me",
       id: messageId,
@@ -298,10 +383,7 @@ class CommunicationService {
     if (sanitizedEmail.indexable === false) {
       // Keep the communication record, but remove any previous chunks/embeddings
       // so this low-value message is not part of semantic search.
-      await this.communicationRepository.replace_chunks(
-        communication.id,
-        [],
-      );
+      await this.communicationRepository.replace_chunks(communication.id, []);
       return sanitizedEmail;
     }
 
