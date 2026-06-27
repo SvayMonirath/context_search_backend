@@ -24,7 +24,7 @@ model User {
 
 enum ProfileType {
   STANDARD
-  PRIVATE
+  STATELESS
 }
 
 enum ProfileColors {
@@ -40,7 +40,6 @@ model Profile {
   id String @id @default(cuid())
   name String @unique
   user_id String
-  password String?
   type ProfileType @default(STANDARD)
   color ProfileColors @default(BLUE)
 

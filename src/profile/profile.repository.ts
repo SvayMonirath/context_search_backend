@@ -28,7 +28,6 @@ class ProfileRepository {
         user_id: profile_data.user_id,
         color: profile_data.color,
         type: profile_data.type,
-        password: profile_data.password || null,
       },
     });
     return new_profile;
