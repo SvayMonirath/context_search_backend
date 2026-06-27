@@ -38,13 +38,11 @@ const communicationService = new CommunicationService(
   integrationRepository,
 );
 
-const communicationController = new CommunicationController(communicationService, integrationRepository, communicationRepository);
-
 const searchHistoryRepository = new SearchHistoryRepository();
 const searchRepository = new SearchRepository();
 const embeddingRepository = new EmbeddingRepository();
 const embeddingService = new EmbeddingService(embeddingRepository);
-const searchService = new SearchService(searchRepository, embeddingService, searchHistoryRepository, communicationService, communicationController);
+const searchService = new SearchService(searchRepository, embeddingService, searchHistoryRepository, communicationService);
 const ragService = new RAGService();
 const searchController = new SearchController(searchService, ragService, );
 

@@ -110,8 +110,8 @@ async def sync_telegram(data: dict):
             "error": str(e)
         }
 
-@router.post("/telegram/live-search")
-async def live_search_telegram(data: dict):
+@router.post("/stateless-search")
+async def stateless_search_telegram(data: dict):
     try:
         integration_id = data.get("integration_id")
         query = data.get("query", "")

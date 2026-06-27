@@ -44,6 +44,47 @@ class CommunicationService {
     );
   };
 
+  async fetchTelegramCandidates(profileID: string, parsed: any) {
+    const integration =
+      await this.integrationRepository.get_active_telegram_integration(
+        profileID,
+      );
+
+    if (!integration) {
+      console.log(`No active Telegram integration found for profileID: ${profileID}`);
+      return []
+    };
+
+    console.log(`Fetching Telegram candidates for profileID: ${profileID} with integration ID: ${integration.id} and keywords: ${parsed.keywords.join(" ")}`,
+    );
+    const response = await fetch(
+      `http://${process.env.PYTHON_BACKEND_HOST}:${process.env.PYTHON_BACKEND_PORT}/telegram/stateless-search`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          integration_id: integration.id,
+          query: parsed.keywords.join(" "),
+          chat_limit: 10,
+        }),
+      },
+    );
+
+    if (!response.ok) return [];
+
+    const data = await response.json();
+
+    console.log(`Received ${data.messages.length} messages from Telegram live search for profileID: ${profileID}`);
+
+    return (data.messages || []).map((msg: any) => ({
+      id: msg.message_id,
+      platform: "telegram",
+      content: msg.text,
+      sender: msg.sender_name,
+      timestamp: new Date(msg.date).getTime(),
+    }));
+  }
+
   async fetchGmailCandidates(profileID: string, parsed: any) {
     const integration =
       await this.integrationRepository.get_active_gmail_integration(profileID);

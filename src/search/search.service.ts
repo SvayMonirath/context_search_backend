@@ -1,4 +1,5 @@
 import type z from "zod";
+import pLimit from "p-limit";
 import { Search_Request } from "./search.request.js";
 import SearchRepository from "./search.repository.js";
 import { SearchHistoryRepository } from "./searchHisory.repository.js";
@@ -12,7 +13,6 @@ class SearchService {
     private embeddings: EmbeddingService,
     private searchHistoryRepository: SearchHistoryRepository,
     private communicationService: CommunicationService,
-    private communicationController: CommunicationController,
   ) {}
 
   save_search_history = async (
@@ -152,41 +152,51 @@ class SearchService {
     return text.match(/.{1,250}/g) || [text];
   }
 
-  private rank(query: string, items: any[]) {
-    const q = query.toLowerCase();
-    const keywords = q.split(" ");
+  private async rank(query: string, items: any[]) {
+    const queryEmbedding = await this.embeddings.query_embedding(query);
 
-    const scored = items.map((item) => {
-      let score = 0;
+    const keywords = query.toLowerCase().split(/\s+/).filter(Boolean);
 
-      const text = item.chunk.toLowerCase();
+    // Limit embedding requests to 5 at a time
+    const limit = pLimit(5);
 
-      // 1. keyword overlap
-      const overlap = keywords.filter((k) => text.includes(k)).length;
-      score += overlap * 2;
+    const ranked = await Promise.all(
+      items.map((item) =>
+        limit(async () => {
+          const chunkEmbedding = await this.embeddings.query_embedding(
+            item.chunk,
+          );
 
-      // 2. full query match boost
-      if (text.includes(q)) score += 3;
+          const semantic = this.cosineSimilarity(
+            queryEmbedding,
+            chunkEmbedding,
+          );
 
-      // 3. recency boost (stateless still uses timestamp)
-      const ageHours = (Date.now() - item.doc.timestamp) / (1000 * 60 * 60);
+          const text = item.chunk.toLowerCase();
 
-      if (ageHours < 24) score += 2;
-      if (ageHours < 72) score += 1;
+          const overlap = keywords.filter((k) => text.includes(k)).length;
 
-      // 4. sender importance (simple heuristic)
-      if (item.doc.sender?.toLowerCase().includes("dara")) {
-        score += 1;
-      }
+          const keywordScore = overlap / Math.max(keywords.length, 1);
 
-      return {
-        doc: item.doc,
-        chunk: item.chunk,
-        score,
-      };
-    });
+          const ageHours = (Date.now() - item.doc.timestamp) / (1000 * 60 * 60);
 
-    return scored.sort((a, b) => b.score - a.score);
+          let recency = 0;
+
+          if (ageHours < 24) recency = 0.1;
+          else if (ageHours < 72) recency = 0.05;
+
+          return {
+            ...item,
+            semantic,
+            keywordScore,
+            recency,
+            score: semantic * 0.75 + keywordScore * 0.2 + recency,
+          };
+        }),
+      ),
+    );
+
+    return ranked.sort((a, b) => b.score - a.score);
   }
 
   buildContext(results: any[]) {
@@ -208,28 +218,42 @@ class SearchService {
       })
       .join("\n\n---\n\n");
   }
+  private cosineSimilarity(a: number[], b: number[]) {
+    let dot = 0;
+    let normA = 0;
+    let normB = 0;
 
+    for (let i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+
+    return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+  }
   extractStatelessSearch = async (query: string, profileID: string) => {
     const parsed = this.parseQuery(query);
 
     const [gmail, telegram] = await Promise.all([
       this.communicationService.fetchGmailCandidates(profileID, parsed),
-      this.communicationController.fetchTelegramCandidates(profileID, parsed),
+      this.communicationService.fetchTelegramCandidates(profileID, parsed),
     ]);
+
+    console.log(`Fetched ${gmail.length} Gmail candidates and ${telegram.length} Telegram candidates for profileID: ${profileID}`,);
 
     const candidates = [...gmail, ...telegram];
 
     const normalized = this.normalizeCandidates(candidates);
-    const chunks = this.chunk(normalized);
-    const ranked = this.rank(query, chunks);
 
-    const top_k = process.env.STATELESS_SEARCH_TOP_K
-      ? parseInt(process.env.STATELESS_SEARCH_TOP_K)
-      : 10;
+    const chunks = this.chunk(normalized);
+
+    const ranked = await this.rank(query, chunks);
+
+    const topK = Number(process.env.STATELESS_SEARCH_TOP_K ?? 10);
 
     return {
       query,
-      results: ranked.slice(0, top_k),
+      results: ranked.slice(0, topK),
     };
   };
 }

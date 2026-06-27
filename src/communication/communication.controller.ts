@@ -15,40 +15,6 @@ class CommunicationController {
     private communicationRepository: CommunicationRepository,
   ) {}
 
-  async fetchTelegramCandidates(profileID: string, parsed: any) {
-
-    const integration =
-      await this.integrationRepository.get_active_telegram_integration(
-        profileID,
-      );
-
-    if (!integration) return [];
-
-    const response = await fetch(
-      `http://${process.env.PYTHON_BACKEND_HOST}:8001/telegram/live-search`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          integration_id: integration.id,
-          query: parsed.keywords.join(" "),
-          chat_limit: 10,
-        }),
-      },
-    );
-
-    if (!response.ok) return [];
-
-    const data = await response.json();
-
-    return (data.messages || []).map((msg: any) => ({
-      id: msg.message_id,
-      platform: "telegram",
-      content: msg.text,
-      sender: msg.sender_name,
-      timestamp: new Date(msg.date).getTime(),
-    }));
-  }
 
   sync_telegram = async (req: express.Request, res: express.Response) => {
     let profile_id: string | undefined;
