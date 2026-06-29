@@ -24,33 +24,33 @@ export const communicationWorker = new Worker(
   async (job) => {
     // Determine the type of job and process accordingly
     if (job.name === "chunk-communication") {
-      const { communicationID } = job.data;
+      const { communicationID, userID } = job.data;
 
       if (!communicationID) {
         throw new Error("Communication ID is required for chunking");
       }
 
-      await chunkingService.processCommunicationChunks(communicationID);
+      await chunkingService.processCommunicationChunks(communicationID, userID);
     }
 
     if(job.name === "sync-gmail") {
-      const { profileID } = job.data;
+      const { profileID, userID } = job.data;
 
       if (!profileID) {
         throw new Error("Profile ID is required for Gmail sync");
       }
-      console.log("(Communication Worker) Starting Gmail sync for profile ID:", profileID);
-      await communicationService.sync_gmail(profileID);
+      console.log("(Communication Worker) Starting Gmail sync for profile ID:", profileID, "and user ID:", userID);
+      await communicationService.sync_gmail(profileID, userID);
     }
 
     if(job.name === "sync-telegram") {
-      const { profileID } = job.data;
+      const { profileID, userID } = job.data;
 
       if (!profileID) {
         throw new Error("Profile ID is required for Telegram sync");
       }
-      console.log("(Communication Worker) Starting Telegram sync for profile ID:", profileID);
-      // await communicationService.sync_telegram(profileID);
+      console.log("(Communication Worker) Starting Telegram sync for profile ID:", profileID, "and user ID:", userID);
+      await communicationService.sync_telegram(profileID, userID);
     }
   },
   {

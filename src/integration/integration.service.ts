@@ -112,6 +112,7 @@ class IntegrationService {
   store_integration_data = async (
     data: z.infer<typeof Store_Integration_Request>,
   ) => {
+
     return await this.integrationRepository.store_integration_data(data);
   };
 

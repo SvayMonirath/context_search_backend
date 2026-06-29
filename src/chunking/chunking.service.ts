@@ -3,14 +3,21 @@ import { embeddingQueue } from "../message_broker/embedding.queue.js";
 import type { CommunicationChunkInput } from "./chunking.type.js";
 import chunkText from "./chunker.js";
 
+import { MasterEncryptionService } from "../security/master-encryption.service.js";
+import UserRepository from "../authentication/user.repository.js";
+import { UserEncryptionFactory } from "../security/user-encryption.factory.js";
+
 const MAX_CHUNK_SIZE = 1000;
 const CHUNK_OVERLAP = 200;
 
 export class ChunkingService {
   constructor(
     private readonly communicationRepository: CommunicationRepository,
+    private readonly userEncryptionFactory = new UserEncryptionFactory(
+      new MasterEncryptionService(),
+      new UserRepository(),
+    ),
   ) {
-    this.communicationRepository = communicationRepository;
   }
 
   // Public wrapper; kept small to aid testability — real logic lives in chunker.ts
@@ -18,17 +25,20 @@ export class ChunkingService {
     return chunkText(content, MAX_CHUNK_SIZE, CHUNK_OVERLAP);
   };
 
-  processCommunicationChunks = async (communicationID: string) => {
+  processCommunicationChunks = async (communicationID: string, userID: string) => {
     try {
-      const communication =
+      const communication: any =
         await this.communicationRepository.get_by_id(communicationID);
+
+      const encryption = await this.userEncryptionFactory.create(userID);
+      const decryptedContent = encryption.decrypt(communication.content ?? "");
 
       if (!communication) {
         throw new Error("Communication not found");
       }
 
       // Build chunks from the cleaned content
-      const rawChunks = this.chunkText(communication.content ?? "");
+      const rawChunks = this.chunkText(decryptedContent);
 
       const structured: CommunicationChunkInput[] = rawChunks.map(
         (chunk, index) => ({

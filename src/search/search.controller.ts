@@ -2,8 +2,6 @@ import express from "express";
 
 import SearchService from "./search.service.js";
 import RAGService from "../RAG/rag.service.js";
-import { ChatService } from "../chat/chat.service.js";
-import { Search_Request } from "./search.request.js";
 
 class SearchController {
   constructor(
@@ -13,6 +11,13 @@ class SearchController {
 
   streamSearch = async (req: express.Request, res: express.Response) => {
     try {
+
+      const user = req.user;
+      const userID = user?.user_id;
+
+      if(!userID) {
+        throw new Error("User ID is required");
+      }
       const query = req.body.query;
       const profileID = req.query.profileId;
       let chatId = req.query.chatId;
@@ -33,7 +38,7 @@ class SearchController {
 
       // 2. run vector search
       const searchStart = Date.now();
-      const result = await this.searchService.queryVector({ query }, 10, profileID as string);
+      const result = await this.searchService.queryVector({ query }, 10, profileID as string, userID);
 
       console.log("Search results found:", result.results.length);
       console.log("Search results:", result.results);
@@ -95,6 +100,7 @@ class SearchController {
 
   statelessSearch = async (req: express.Request, res: express.Response) => {
     try {
+
       const query = req.body.query;
       const profileID = req.query.profileId as string;
       let chatId = req.query.chatId;
@@ -145,6 +151,7 @@ class SearchController {
         query,
         [],
         fullResponse,
+        userID
       );
 
       const ragTime = Date.now() - ragStart;

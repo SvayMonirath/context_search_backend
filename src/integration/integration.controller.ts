@@ -154,14 +154,6 @@ class IntegrationController {
 
       await this.integrationService.store_integration_data(integration_data);
 
-      // return res.status(200).json({
-      //   status: "success",
-      //   message: "Google account connected successfully",
-      //   data: {
-      //     token,
-      //     ProfileID: profile_id,
-      //   },
-      // });
       return res.redirect(
         `${process.env.FRONTEND_URL}/dashboard/neural-links?profileId=${profile_id}`,
       );
