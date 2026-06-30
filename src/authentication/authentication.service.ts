@@ -4,14 +4,14 @@ import { Register_Request, Login_Request } from "./authentication.request.js";
 import PasswordService from "./password.service.js";
 import UserRepository from "./user.repository.js";
 import { generate_access_token } from "../utils/jwt.utils.js";
+import { UserEncryptionFactory } from "../security/user-encryption.factory.js";
 
 export class AuthenticationService {
   constructor(
     private user_repository: UserRepository,
     private password_service: PasswordService,
-  ) {
-    this.user_repository = user_repository;
-  }
+    private user_encryption_factory: UserEncryptionFactory,
+  ) {}
 
   register = async (userData: z.infer<typeof Register_Request>) => {
     if (await this.user_repository.get_user_by_email(userData.email)) {
@@ -27,8 +27,17 @@ export class AuthenticationService {
     userData.hash_password = await this.password_service.hash_password(
       userData.hash_password,
     );
-    await this.user_repository.create_user(userData);
+    const user = await this.user_repository.create_user(userData);
+    if(!user) {
+      throw new Error("Error creating user");
+    }
 
+    const result = await this.user_encryption_factory.initializeUserKey(user.id);
+
+    if(!result) {
+      this.user_repository.delete_user(user.id);
+      throw new Error("Error initializing user encryption key");
+    }
     return true;
   };
 

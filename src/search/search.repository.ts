@@ -1,25 +1,21 @@
+
+import UserRepository from "../authentication/user.repository.js";
 import prisma from "../prisma.client.js";
+import { MasterEncryptionService } from "../security/master-encryption.service.js";
+import { UserEncryptionFactory } from "../security/user-encryption.factory.js";
 import { matchesMemoryRules } from "../utils/memoryRules.utils.js";
 
+
 class SearchRepository {
+
 async hybridSearch(
   queryText: string,
   queryVector: number[],
   limit: number = 10,
-  profileID: string
+  profileID: string,
 ) {
   const vectorString = `[${queryVector.join(",")}]`;
   const candidateLimit = Math.max(limit * 8, 80);
-
-  const rules = await prisma.memoryRule.findMany({
-    where: {
-      profileID,
-      isActive: true,
-      scope: {
-        in: ["RETRIEVAL", "BOTH"],
-      },
-    },
-  });
 
   const results: any[] = await prisma.$queryRaw`
     WITH candidates AS (
@@ -34,87 +30,26 @@ async hybridSearch(
         c.created_at,
 
         COALESCE(c.metadata->>'chat_title', '') AS chat_title,
-
         COALESCE(c.metadata->>'subject', '') AS subject,
         COALESCE(c.metadata->>'category', 'important') AS category,
         COALESCE((c.metadata->>'importance')::double precision, 0.5) AS importance,
 
-        (1 - (e.vector <=> ${vectorString}::vector)) AS vector_score,
-
-        ts_rank_cd(
-          to_tsvector(
-            'english',
-            CONCAT_WS(
-              ' ',
-              COALESCE(cc.content, ''),
-              COALESCE(c.sender, ''),
-              COALESCE(c.metadata->>'subject', ''),
-              COALESCE(c.metadata->>'chat_title', 'Untitled Chat')
-            )
-          ),
-          plainto_tsquery('english', ${queryText})
-        ) AS keyword_score
+        (1 - (e.vector <=> ${vectorString}::vector)) AS vector_score
 
       FROM "Embedding" e
       JOIN "CommunicationChunk" cc ON e."chunkID" = cc.id
       JOIN "Communication" c ON cc."communicationID" = c.id
 
       WHERE COALESCE((c.metadata->>'indexable')::boolean, true) = true
-    ),
-
-    scored AS (
-      SELECT
-        *,
-
-        (
-          (0.65 * vector_score) +
-          (0.20 * LEAST(keyword_score, 1.0)) +
-          (0.10 * importance) +
-
-          CASE
-            WHEN LOWER(sender) LIKE LOWER('%' || ${queryText} || '%')
-            THEN 0.05 ELSE 0
-          END +
-
-          CASE category
-            WHEN 'important' THEN 0.05
-            WHEN 'article' THEN 0.03
-            WHEN 'forum' THEN 0.02
-            WHEN 'social' THEN -0.02
-            WHEN 'course' THEN -0.05
-            WHEN 'job' THEN -0.05
-            WHEN 'newsletter' THEN -0.08
-            WHEN 'promotion' THEN -0.15
-            WHEN 'ad' THEN -0.20
-            WHEN 'spam' THEN -0.40
-            ELSE 0
-          END
-        ) AS score
-
-      FROM candidates
     )
 
     SELECT *
-    FROM scored
-    WHERE category NOT IN ('spam', 'ad')
-    ORDER BY score DESC
+    FROM candidates
+    ORDER BY vector_score DESC
     LIMIT ${candidateLimit};
   `;
 
-  const filteredResults = results.filter((item) => {
-    const { blocked } = matchesMemoryRules(
-      {
-        sender: String(item.sender || "Unknown"),
-        content: item.content ?? "",
-        integrationID: item.integrationID,
-      },
-      rules,
-    );
-
-    return !blocked;
-  });
-
-  return this.applyDiversityFilter(filteredResults, limit);
+  return this.applyDiversityFilter(results, limit);
 }
 
 private applyDiversityFilter(results: any[], limit: number) {

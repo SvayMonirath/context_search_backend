@@ -1,13 +1,22 @@
 import { CommunicationType, IntegrationType } from "@prisma/client";
 import { matchesMemoryRules } from "../utils/memoryRules.utils.js";
 import prisma from "../prisma.client.js";
+import { UserEncryptionFactory } from "../security/user-encryption.factory.js";
+import { MasterEncryptionService } from "../security/master-encryption.service.js";
+import UserRepository from "../authentication/user.repository.js";
 
 class CommunicationRepository {
+
+  constructor(private readonly userEncryptionFactory = new UserEncryptionFactory(
+    new MasterEncryptionService(),
+    new UserRepository()
+  )) {}
 
   async save_telegram_message(
     profileID: string,
     integrationID: string,
     msg: any,
+    userID: string
   ) {
     try {
       const { blocked } = matchesMemoryRules(
@@ -30,6 +39,13 @@ class CommunicationRepository {
         return null;
       }
 
+
+
+      const encryption = await this.userEncryptionFactory.create(userID);
+      const encryptedContent = String(encryption.encrypt(msg.text ?? ""));
+      const encryptedSender = String(encryption.encrypt(msg.sender_name ?? ""));
+      const encryptedChatTitle = String(encryption.encrypt(msg.chat_title ?? "Untitled Chat"));
+
       return prisma.communication.upsert({
         where: {
           integrationID_externalID: {
@@ -42,12 +58,12 @@ class CommunicationRepository {
           integrationID,
           type: CommunicationType.TELEGRAM_MESSAGE,
           externalID: String(msg.message_id),
-          sender: String(msg.sender_name || "Unknown"),
-          content: msg.text,
+          sender: encryptedSender,
+          content: encryptedContent,
           sent_at: new Date(msg.date),
           metadata: {
             chat_id: String(msg.chat_id),
-            chat_title: String(msg.chat_title || "Untitled Chat"),
+            chat_title: encryptedChatTitle,
             sender_id: msg.sender_id ? String(msg.sender_id) : null,
           },
         },
@@ -67,7 +83,7 @@ class CommunicationRepository {
     });
   }
 
-  save_email = async (profileID: string, integrationID: string, email: any) => {
+  save_email = async (profileID: string, integrationID: string, email: any, userID: string) => {
     try {
 
       const { blocked } = matchesMemoryRules(
@@ -91,6 +107,18 @@ class CommunicationRepository {
         return null;
       }
 
+      const encryption = await this.userEncryptionFactory.create(userID);
+      const encryptedBody = String(encryption.encrypt(email.body ?? ""));
+      const encryptedSubject = String(encryption.encrypt(email.subject ?? ""));
+      const encryptedFrom = String(encryption.encrypt(email.from ?? ""));
+
+      // const encryptedEmail = {
+      //   ...email,
+      //   body: encryptedBody,
+      //   subject: encryptedSubject,
+      //   from: encryptedFrom,
+      // };
+
       const externalID = email.id ?? null;
 
       // If this message already exists for the same integration, refresh it
@@ -107,13 +135,13 @@ class CommunicationRepository {
           return prisma.communication.update({
             where: { id: existingEmail.id },
             data: {
-              sender: email.from ?? existingEmail.sender,
-              content: email.body ?? existingEmail.content,
+              sender: encryptedFrom,
+              content: encryptedBody,
               sent_at: Number(email.internalDate)
                 ? new Date(Number(email.internalDate))
                 : existingEmail.sent_at,
               metadata: {
-                subject: email.subject,
+                subject: encryptedSubject,
                 snippet: email.snippet,
                 labelIds: email.labelIds,
                 category: email.category,
@@ -132,11 +160,11 @@ class CommunicationRepository {
 
           type: CommunicationType.EMAIL,
           externalID,
-          sender: email.from ?? "Unknown sender",
-          content: email.body ?? "",
+          sender: encryptedFrom,
+          content: encryptedBody,
           sent_at: new Date(Number(email.internalDate)),
           metadata: {
-            subject: email.subject,
+            subject: encryptedSubject,
             snippet: email.snippet,
             labelIds: email.labelIds,
             category: email.category,

@@ -6,7 +6,11 @@ import { buildSanitizedEmail } from "./communication-email-sanitizer.js";
 import { communicationQueue } from "../message_broker/communication.queue.js";
 import type CommunicationRepository from "./communication.repository.js";
 import type IntegrationRepository from "../integration/integration.repository.js";
-import type { SyncStatus } from "@prisma/client";
+import { SyncStatus } from "@prisma/client";
+import { MasterEncryptionService } from "../security/master-encryption.service.js";
+import UserRepository from "../authentication/user.repository.js";
+import { UserEncryptionFactory } from "../security/user-encryption.factory.js";
+
 
 type GmailIntegration = {
   id: string;
@@ -22,6 +26,10 @@ class CommunicationService {
     private communicationRepository: CommunicationRepository,
     private chunkingService: ChunkingService,
     private integrationRepository: IntegrationRepository,
+    private UserEncryptionService = new UserEncryptionFactory(
+      new MasterEncryptionService(),
+      new UserRepository()
+    )
   ) {
     this.integrationService = integrationService;
     this.googleOAuthService = googleOAuthService;
@@ -33,15 +41,26 @@ class CommunicationService {
     profileID: string,
     offset: number,
     limit: number,
+    userID: string
   ) => {
     if (!profileID) {
       throw new Error("Profile ID is required");
     }
-    return await this.communicationRepository.get_communications(
+    const {data, total} = await this.communicationRepository.get_communications(
       profileID,
       offset,
       limit,
     );
+
+    const encryption = await this.UserEncryptionService.create(userID);
+
+    const decryptedData = data.map((communication: any) => {
+      const decryptedContent = encryption.decrypt(communication.content ?? "");
+      const decryptedSender = encryption.decrypt(communication.sender ?? "");
+      return { ...communication, content: decryptedContent, sender: decryptedSender };
+    });
+
+    return { data: decryptedData, total };
   };
 
   async fetchTelegramCandidates(profileID: string, parsed: any) {
@@ -136,89 +155,105 @@ class CommunicationService {
     return fullMessages.filter(Boolean);
   }
 
-  fetch_emails = async (profile_id: string, maxResults = 10) => {
-    if (!profile_id) {
-      throw new Error("Profile ID is required");
-    }
-
-    const integration =
-      await this.integrationRepository.get_active_gmail_integration(profile_id);
-
-    if (!integration) {
-      throw new Error("Gmail integration not found for the specified profile");
-    }
-
-    if (!integration.accessToken || !integration.refreshToken) {
-      throw new Error("Gmail integration is missing access or refresh token");
-    }
-
-    let gmailClient = await this.googleOAuthService.create_gmail_client({
-      profileID: integration.profileID,
-      accessToken: integration.accessToken,
-      refreshToken: integration.refreshToken,
-    });
-
-    const listResponse = await gmailClient.users.messages.list({
-      userId: "me",
-      maxResults,
-      labelIds: ["INBOX"],
-    });
-
-    const messages = listResponse.data.messages ?? [];
-
-    const emails = await Promise.all(
-      messages.map(async (message) => {
-        if (!message.id) {
-          return null;
-        }
-
-        const detailResponse = await gmailClient.users.messages.get({
-          userId: "me",
-          id: message.id,
-          format: "full",
-        });
-
-        const sanitizedEmail = buildSanitizedEmail({
-          id: detailResponse.data.id ?? undefined,
-          threadId: detailResponse.data.threadId ?? undefined,
-          snippet: detailResponse.data.snippet ?? undefined,
-          labelIds: detailResponse.data.labelIds ?? undefined,
-          internalDate: detailResponse.data.internalDate ?? undefined,
-          payload: detailResponse.data.payload ?? undefined,
-        });
-
-        // Save the email to the database and process it for chunking
-        const communication = await this.communicationRepository.save_email(
-          integration.profileID,
-          integration.id,
-          sanitizedEmail,
+  sync_telegram = async (profile_id: string, userID: string) => {
+      const integration =
+        await this.integrationRepository.get_active_telegram_integration(
+          profile_id,
         );
 
-        if (sanitizedEmail.indexable === false) {
-          // Keep the communication record, but remove any previous chunks/embeddings
-          // so this low-value message is not part of semantic search.
-          await this.communicationRepository.replace_chunks(
-            communication.id,
-            [],
-          );
-          return sanitizedEmail;
-        }
+      if (!integration) {
+        throw new Error("Telegram integration not found");
+      }
 
-        // Process the communication to create chunks
-        // await this.chunkingService.processCommunication(communication.id);
-        // explain the syntax
-        await communicationQueue.add("chunk-communication", {
-          communicationID: communication.id,
+      await this.integrationRepository.update_integration(integration.id, {
+        syncStatus: SyncStatus.SYNCING,
+      });
+
+      const response = await fetch(
+        `http://${process.env.PYTHON_BACKEND_HOST || "localhost"}:${process.env.PYTHON_BACKEND_PORT || "8001"}/telegram/sync-telegram`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            integration_id: integration.id,
+            last_sync: integration.metadata || {},
+            chat_limit: process.env.TELEGRAM_SYNC_CHAT_LIMIT
+              ? parseInt(process.env.TELEGRAM_SYNC_CHAT_LIMIT)
+              : 10,
+          }),
+        },
+      );
+
+      console.log("Sent request to sync with Telegram");
+      if (!response.ok) {
+        await this.communicationRepository.update_integration(integration.id, {
+          syncStatus: SyncStatus.IDLE,
         });
+        throw new Error(`Telegram sync failed with status ${response.status}`);
+      }
 
-        return sanitizedEmail;
-      }),
-    );
+      const data = await response.json();
+      console.log("Received data from Telegram sync");
 
-    return emails.filter(Boolean);
-  };
+      const limit = pLimit(5);
+      console.time("Total sync time");
 
-  sync_gmail = async (profile_id: string) => {
+      await Promise.all(
+        data.messages.map((msg: any) =>
+          limit(async () => {
+            const start = Date.now();
+
+            const communication =
+              await this.communicationRepository.save_telegram_message(
+                integration.profileID,
+                integration.id,
+                msg,
+                userID
+              );
+
+            if (!communication) {
+              console.log(
+                `Message ${msg.message_id} was blocked by memory rules and was not saved.`,
+              );
+              return;
+            }
+
+            await communicationQueue.add("chunk-communication", {
+              communicationID: communication.id,
+              userID: userID,
+            });
+
+            console.log(
+              `Processed message ${msg.message_id} in ${Date.now() - start}ms`,
+            );
+          }),
+        ),
+      );
+      console.timeEnd("Total sync time");
+
+      // Clean structural compilation for the Prisma JSON column
+      const existingMetadata =
+        typeof integration.metadata === "object" &&
+        integration.metadata !== null
+          ? (integration.metadata as Record<string, any>)
+          : {};
+
+      await this.integrationRepository.update_integration(integration.id, {
+        syncStatus: SyncStatus.SUCCESS,
+        lastSyncedAt: new Date(),
+        metadata: {
+          ...existingMetadata,
+          lastMessageId: String(data.lastMessageId),
+          chatStates: {
+            ...(existingMetadata.chatStates || {}),
+            ...data.chatStates,
+          },
+        },
+      });
+
+  }
+
+  sync_gmail = async (profile_id: string, userID: string) => {
     const integration =
       await this.integrationRepository.get_active_gmail_integration(profile_id);
 
@@ -244,12 +279,12 @@ class CommunicationService {
       console.log(
         `(Communication Service) Starting initial sync for integration ${integration.id}`,
       );
-      await this.initial_gmail_sync(integration);
+      await this.initial_gmail_sync(integration, userID);
     } else {
       console.log(
         `(Communication Service) Starting incremental sync for integration ${integration.id}`,
       );
-      await this.incremental_gmail_sync(integration);
+      await this.incremental_gmail_sync(integration, userID);
     }
     status = "SUCCESS";
     await this.integrationRepository.update_integration(integration.id, {
@@ -261,7 +296,7 @@ class CommunicationService {
     );
   };
 
-  initial_gmail_sync = async (integration: any) => {
+  initial_gmail_sync = async (integration: any, userID: string) => {
     const MAX_INITIAL_SYNC_MESSAGES = parseInt(
       process.env.EMAIL_INITIAL_SYNC_LIMIT || "1000",
     ); // Safety cap to prevent syncing too many emails at once
@@ -293,9 +328,11 @@ class CommunicationService {
         messages.map((msg) => {
           if (!msg.id) return Promise.resolve();
 
-          console.time(`Scheduling message ${msg.id} for processing`);
+          console.log(
+            `(Communication Service) Processing message ${msg.id} for integration ${integration.id}`,
+          );
           return limit(() =>
-            this.process_gmail_message(gmailClient, integration, msg.id!).then(
+            this.process_gmail_message(gmailClient, integration, msg.id!, userID).then(
               (result) => {
                 if (result?.historyId) {
                   latestHistoryId = result.historyId;
@@ -322,7 +359,7 @@ class CommunicationService {
     }
   };
 
-  incremental_gmail_sync = async (integration: any) => {
+  incremental_gmail_sync = async (integration: any, userID: string) => {
     const gmailClient = await this.googleOAuthService.create_gmail_client({
       profileID: integration.profileID,
       accessToken: integration.accessToken,
@@ -332,7 +369,7 @@ class CommunicationService {
     const startHistoryId = integration.gmailHistoryId;
 
     if (!startHistoryId) {
-      return await this.initial_gmail_sync(integration);
+      return await this.initial_gmail_sync(integration, userID);
     }
 
     try {
@@ -367,6 +404,7 @@ class CommunicationService {
               gmailClient,
               integration,
               msg.message.id!,
+              userID
             );
           }),
         );
@@ -388,7 +426,7 @@ class CommunicationService {
       });
     } catch (error: any) {
       if (error.code === 404 || error.message?.includes("historyId")) {
-        return await this.initial_gmail_sync(integration);
+        return await this.initial_gmail_sync(integration, userID);
       }
       throw error;
     }
@@ -398,6 +436,7 @@ class CommunicationService {
     gmailClient: any,
     integration: any,
     messageId: string,
+    userID: string,
   ) => {
     const detailResponse = await gmailClient.users.messages.get({
       userId: "me",
@@ -414,11 +453,13 @@ class CommunicationService {
       payload: detailResponse.data.payload ?? undefined,
     });
 
+
     // Save the email to the database and process it for chunking
     const communication = await this.communicationRepository.save_email(
       integration.profileID,
       integration.id,
       sanitizedEmail,
+      userID
     );
 
     if (sanitizedEmail.indexable === false) {
@@ -432,6 +473,7 @@ class CommunicationService {
     // await this.chunkingService.processCommunication(communication.id);
     await communicationQueue.add("chunk-communication", {
       communicationID: communication.id,
+      userID: userID,
     });
 
     return {

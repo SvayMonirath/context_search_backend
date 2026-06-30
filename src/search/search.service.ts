@@ -4,15 +4,22 @@ import { Search_Request } from "./search.request.js";
 import SearchRepository from "./search.repository.js";
 import { SearchHistoryRepository } from "./searchHisory.repository.js";
 import EmbeddingService from "../embedding/embedding.service.js";
-import type CommunicationService from "../communication/communication.service.js";
-import type CommunicationController from "../communication/communication.controller.js";
+import CommunicationService from "../communication/communication.service.js";
+
+import { MasterEncryptionService } from "../security/master-encryption.service.js";
+import UserRepository from "../authentication/user.repository.js";
+import { UserEncryptionFactory } from "../security/user-encryption.factory.js";
 
 class SearchService {
   constructor(
     private searchRepository: SearchRepository,
-    private embeddings: EmbeddingService,
+    private embeddingService: EmbeddingService,
     private searchHistoryRepository: SearchHistoryRepository,
     private communicationService: CommunicationService,
+    private userEncryptionFactory: UserEncryptionFactory = new UserEncryptionFactory(
+      new MasterEncryptionService(),
+      new UserRepository(),
+    ),
   ) {}
 
   save_search_history = async (
@@ -21,6 +28,7 @@ class SearchService {
     query: string,
     results: any[],
     response: string,
+    userID: string,
   ) => {
     await this.searchHistoryRepository.save_search_history(
       chatId,
@@ -37,15 +45,35 @@ class SearchService {
       ? parseInt(process.env.QUERY_LIMIT)
       : 10,
     profileID: string,
+    userID: string,
   ) => {
     try {
-      const queryVector = await this.embeddings.query_embedding(data.query);
+      const queryVector = await this.embeddingService.query_embedding(data.query);
 
-      const candidates = await this.searchRepository.hybridSearch(
+      const encryptedCandidates = await this.searchRepository.hybridSearch(
         data.query,
         queryVector,
         limit,
         profileID,
+      );
+      const safeDecrypt = async (value: any) => {
+        if (!value || typeof value !== "string") return value;
+
+        try {
+          return await encryption.decrypt(value);
+        } catch (err) {
+          // fallback: assume already plaintext or corrupted legacy data
+          return value;
+        }
+      };
+      const encryption = await this.userEncryptionFactory.create(userID);
+
+      const candidates = await Promise.all(
+        encryptedCandidates.map(async (c) => ({
+          ...c,
+          content: await safeDecrypt(c.content),
+          sender: await safeDecrypt(c.sender),
+        })),
       );
 
       const normalizedQuery = data.query.toLowerCase().trim();
@@ -54,7 +82,7 @@ class SearchService {
         .split(/\s+/)
         .filter((term) => term.length > 2);
 
-      const reranked = (candidates as Array<any>)
+      const reranked = candidates
         .map((candidate) => {
           const searchableText = [
             candidate.content,
@@ -68,18 +96,20 @@ class SearchService {
             .join(" ")
             .toLowerCase();
 
+          // lexical scoring (NOW VALID because decrypted)
           const keywordCoverage =
             queryTerms.length === 0
               ? 0
-              : queryTerms.filter((term) => searchableText.includes(term))
-                  .length / queryTerms.length;
+              : queryTerms.filter((term) => searchableText.includes(term)).length /
+                queryTerms.length;
 
-          const phraseBoost = searchableText.includes(normalizedQuery)
-            ? 0.1
-            : 0;
+          const phraseBoost = searchableText.includes(normalizedQuery) ? 0.1 : 0;
 
+          const lexicalScore = keywordCoverage * 0.2 + phraseBoost;
+
+          // final score = vector + lexical
           const finalScore =
-            Number(candidate.score ?? 0) + keywordCoverage * 0.15 + phraseBoost;
+            Number(candidate.vector_score ?? 0) * 0.75 + lexicalScore;
 
           return {
             ...candidate,
@@ -153,7 +183,7 @@ class SearchService {
   }
 
   private async rank(query: string, items: any[]) {
-    const queryEmbedding = await this.embeddings.query_embedding(query);
+    const queryEmbedding = await this.embeddingService.query_embedding(query);
 
     const keywords = query.toLowerCase().split(/\s+/).filter(Boolean);
 
@@ -163,7 +193,7 @@ class SearchService {
     const ranked = await Promise.all(
       items.map((item) =>
         limit(async () => {
-          const chunkEmbedding = await this.embeddings.query_embedding(
+          const chunkEmbedding = await this.embeddingService.query_embedding(
             item.chunk,
           );
 

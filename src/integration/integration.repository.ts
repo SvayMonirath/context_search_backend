@@ -120,6 +120,7 @@ class IntegrationRepository {
         isActive: true,
       }
     })
+
   }
 
   update_integration = async (integration_id: string, data: Prisma.IntegrationUpdateInput) => {

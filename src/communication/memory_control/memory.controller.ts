@@ -6,6 +6,10 @@ export class MemoryController {
 
   search_memory = async (req: express.Request, res: express.Response) => {
     try {
+
+      const user = req.user;
+      const userID = user?.user_id;
+
       if (!req.params.profile_id) {
         throw new Error("Profile ID is required");
       }
@@ -24,6 +28,7 @@ export class MemoryController {
         filters,
         limit,
         offset,
+        userID: userID as string,
       });
 
       res.status(200).json({
@@ -127,6 +132,7 @@ export class MemoryController {
       const ruleID: string | string[] | undefined = req.params.rule_id as string;
       const profileID: string | string[] | undefined = req.params
         .profile_id as string;
+      const userID: string | string[] | undefined = req.user?.user_id as string;
 
       await this.memoryService.deleteRule(profileID, ruleID);
 
